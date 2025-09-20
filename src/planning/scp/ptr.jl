@@ -28,6 +28,4 @@ mutable struct Paras <: SCPParameters
     q_exit::RealTypes    # Stopping criterion norm
 
 
-
-
 end
