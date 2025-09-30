@@ -10,7 +10,9 @@ using ECOS
 #         h - G*z ∈ K 
 #    (where K is a composite cone)
 mutable struct LnrConPgm
+    # variables vector z
     n::Int;        # Number of variables
+    z::Vector{Float64};     # Array of size n, variables
 
     # linear objective function: Min c'z
     c::Vector{Float64};     # Array of size n, cost function weights

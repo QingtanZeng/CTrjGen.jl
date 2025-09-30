@@ -1,6 +1,9 @@
+using SparseArrays
 
 
-
+""" Enumeration definition"""
+@enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG);
+@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRG);
 
 """ data structure of SCP and its variants """
 mutable struct ScpParas <: SCPParameters
@@ -50,18 +53,31 @@ mutable struct ScpSubPbm
     # Linear conic problem including Sparse Matrix
     pgmLnrCon::LnrConPgm;
 end
+mutable struct ScpSubPbm_lnrConPgm
+end
+function ScpSubPbm_lnrConPgm()
+    
+
+
+
+end
 
 """ Construct ScpSubPbm """
 function ScpSubPbm(scpPrs::ScpParas, scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
-    
+    #local variables
+    nx=trjPbm.nx;
+    nu=trjPbm.nu;
+    np=trjPbm.np;
+    N=scpPrs.N;
+
     # Define variables z
     # dynamic system block v1={x;u;p;v+;v-}
-    dims_x = trjPbm.nx * scpPrs.N;  #  state x
-    dims_u = trjPbm.nu * scpPrs.N;  #  control u
-    dims_p = trjPbm.np * scpPrs.N;  #  parameters p
-    dims_v = trjPbm.nx * scpPrs.N;  #  virtual control v
+    dims_x = nx * N;  #  state x
+    dims_u = nu * N;  #  control u
+    dims_p = np;  #  parameters p
+    dims_v = 2*nx * (N+1);  #  virtual control v={v+;v-}
     # all linear (slack) variables block v2={v';s1;...;sml}
-    dims_vc = trjPbm.       # vitual control of nonconvex inequalities
+    dims_vc =        # vitual control of nonconvex inequalities
     dims_sml = trjPbm       # linear slack for K≤0 to K=0 
     # all trust region and soc slack variables block v3={s1;...;sml}
     dims_chiEta = trjPbm       # trust reion of dynamic
@@ -71,16 +87,48 @@ function ScpSubPbm(scpPrs::ScpParas, scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
     dims_z = dims_x + dims_u + dims_p 
             + 2* dims_v + dims_vc + dims_sml
             + dims_chiEta + dims_chiEtap + dims_chic;    # z dimenations
+    scpPbm.pgmLnrCon.n = dims_z;
+    scpPbm.pgmLnrCon.z = zeros(dims_z);
 
     # Define linear objective function c    
 
-    # Define dynamic parts of Ax=b
-    size_Mb_P_A =           # boundaries + dynamic nodes 
-    dims_Vb_P_b =           # boundaries + dynamic nodes
+    # Define dynamic parts of Ax=b, block c1={X^P_A, X^b_P}
+    # 2 boundaries + (N-1) dynamic nodes constraints, idx0 + idxN + idx(1~(N-1))
+    # assume the initial and terminal constraints follows same equation with dynamics
+    n0=nx;
+    nf=nx;
+    dimsRow_M_P_A = n0 + (N - 1)*nx + nf;   # n0+nf+(N-1)nx
+    dimsCol_M_P_A = nx * N + nu * N + np 
+                    + 2*nx * (N+1);   # same as length(v1)
+    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A);      
+    dims_V_P_b = dimsRow_M_P_A;
+
+    # create the Sparse A matrix: I, J, V
+    dimsSpElem_M_P_A = n0*nx + n0*np + 2*n0     # idx=0, initial constraint
+                       +(N-1)*((nx*nx+nx)+(2*nx*nu)+(nx*np)+2*nx)   
+                       + nf*nx + nf*np + 2*nf;     # idx=N, terminal constraint
+    I=zeros(Int64, dimsSpElem_M_P_A);
+    J=zeros(Int64, dimsSpElem_M_P_A);
+    V=zeros(Float64, dimsSpElem_M_P_A);
+
+    # idx=0, initial constraint, start{(1,1),(1,),(1,),(1,)}
+
+    # idx=1~(N-1), nodes constraints
+    for idx = 0:scpPbm.N
+
+            
+    end
+    # idx=N, terminal constraint
+    
+    l
+
+
     # Define linear equalities parts
     size_Mb_C_A =
     dims_Mb_C_b = 
     # Define the linear slack parts
+
+
     # Define trust region parts
     # Define other SOC slack parts 
 
@@ -141,6 +189,30 @@ function scp_inin_qsopc!(
 )
 
 end
+
+struct PosiBlkMtrx
+    initptr::Vector{Int};
+    size::Vector{Int};
+end
+
+function scpsubpbm_zMap()
+end
+function scpsubpbm_cMap()
+end
+function scpsubpbm_AMap(
+    cstrt::CstrtType, 
+    idx::Int,       # index of this constraint class 
+    vars::VarsType
+    )::PosiBlkMtrx
+
+
+    return  # block matrix's initial point and size
+end
+function scpsubpbm_bMap()
+    return
+        # block matrix's initial point and size
+end
+
 
 function scp_upd_dyn!(
     subPbm::ScpSubPbm,
