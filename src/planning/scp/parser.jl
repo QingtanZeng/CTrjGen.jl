@@ -1,3 +1,4 @@
+include("SCP.jl")
 
 """ Parser online """
 function scp_upd_dyn!(
@@ -6,11 +7,8 @@ function scp_upd_dyn!(
     trjPbm::TrjPbm,
     )::Nothing
     
-    # idx=1~(N-1), nodes constraints
-    for idx = 0:scpPbm.N
+    discre
 
-            
-    end
 end
 
 

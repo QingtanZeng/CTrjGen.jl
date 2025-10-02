@@ -2,12 +2,9 @@
 Overtake trajectory planning case-problem class
 """
 
-using LinearAlgebra
-using JuMP
-using ..utils
-
 # Overtake case problem
-mutable struct TrjPbm_Ovrtk
+mutable struct TrjPbm_Ovrtk <: AbstTrjPbm
+
     # Overtake parameters
 
 end
@@ -61,8 +58,8 @@ function TrjPbm_Ovrtk_Main(
     #Other default parameters
 
     #Other data-structure
-    soluScp = ScpSolu();
-    hstyScp = ScpHsty();
+    soluScp = ScpSolu()
+    histScp = ScpHist()
 
     """ 1.2 OPC_SCP Pre-Hand-Parser""" 
     # Initialize and pre-parse all problem and program

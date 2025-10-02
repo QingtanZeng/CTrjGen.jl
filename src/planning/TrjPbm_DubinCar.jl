@@ -1,12 +1,8 @@
-include("automdl/AutoMDL.jl")
-#include("cvxsolver/CVXSOLVER.jl")
-#include("utils/UTILS.jl")
-include("scp/scppbm.jl")
-
+include("PLANNING.jl")
 using LinearAlgebra, SparseArrays
 
 """ Dubin Car as first constructive example for OPC-SCP"""
-mutable struct TrjPbm_DubinCar
+mutable struct TrjPbm_DubinCar <: AbstTrjPbm
    """ II. Auto Dynamic"""
     dynmdl::DynMdl
    
@@ -38,6 +34,12 @@ mutable struct TrjPbm_DubinCar
     # 3.1 Initial constraint
 
     # 3.2 Terminal constraint
+
+    
+    """VII. OPC-SCP parameters """
+    # Variable Scaling Parameters
+    scpScl::SCPScaling;             
+    # Normalize to the standard Traj-OPC problem
 
     """ X. Trajectory data-structure"""
     # Initial guess
@@ -72,14 +74,15 @@ end
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     scppbm=SCPPbm(prsscp, trjdb)
-    soluscp = ScpSolu()
-    scphist = ScpHist()
 
     # Construct the sub-problem and its convex solver
     subpbm=ScpSubPbm()
 
 # 2.0 Initialize Guess, SCP-problem, Sub-problem, and solver
 #       including scaling and preparse
+
+    # pre-parse
+    scp_upd_dyn!()
 
 
 # 3.0 iteritive solving loop

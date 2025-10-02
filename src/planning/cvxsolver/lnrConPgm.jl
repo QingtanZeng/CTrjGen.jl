@@ -51,7 +51,7 @@ mutable struct SoluLnrConPgm
     tau::Float64
 end
 
-mutable struct HstyLnrConPgm
+mutable struct HistLnrConPgm
 # history states of solver in one subPbm
     pgm_hist::Vector{SoluLnrConPgm}
 end
