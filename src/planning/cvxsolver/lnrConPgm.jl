@@ -40,6 +40,23 @@ function LnrConPgm(
 )::LnrConPgm
 end
 
+mutable struct SoluLnrConPgm
+#  updated states of solver in one iteraion of one subPbm
+    z::Vector{Float64}  # primal variables
+                        # dual variables
+    pcost::Float64
+    dcost::Float64
+    gap::Float64
+    
+    tau::Float64
+end
+
+mutable struct HstyLnrConPgm
+# history states of solver in one subPbm
+    pgm_hist::Vector{SoluLnrConPgm}
+end
+
+
 function LnrConPgm_setup(
     lnrConPgm::LnrConPgm,
 )::Any
