@@ -1,4 +1,4 @@
-using SparseArrays
+using LinearAlgebra, SparseArrays
 
 
 """ Enumeration definition"""
@@ -6,20 +6,31 @@ using SparseArrays
 @enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC);
 
 """ data structure of SCP and its variants """
-mutable struct ScpParas <: SCPParameters
+mutable struct ScpParas
     N::Int;         # Number of temporal grid nodes
     Nsub::Int;      # Number of subinterval integration
 
-    itrOutMax::Int;     # Maximum outer loop number
-    itrIntMax::Int;     # Maximum internal loop number
+    itrScpMax::Int;     # Maximum outer loop number
+    itrCSlvMax::Int;     # Maximum internal loop number
 
-    discMthd::DiscType; # The discretization method
+    CSlvType::Int;      # Specify default solver type
 
-    cvxSlvrType::ConvexSolverType;      # Specify default solver type
+    epsl_abs::Float64;    # Absolute convergence tolerance
+    epsl_rel::Float64;    # Relative convergence tolerance
+    feas_tol::Float64;    # Dynamic feasibility tolerance
+end
 
-    epsl_abs::RealTypes;    # Absolute convergence tolerance
-    epsl_rel::RealTypes;    # Relative convergence tolerance
-    feas_tol::RealTypes;    # Dynamic feasibility tolerance
+function ScpParas(; N::Int=10, Nsub::Int=10, 
+                    itrScpMax::Int=30, itrCSlvMax::Int=50, 
+                    CSlvType::Int=0,
+                    epsl_abs::Float64=1e-2, epsl_rel::Float64=3e-3,
+                    feas_tol::Float64=1e-2)::ScpParas
+
+    prsscp = ScpParas(N, Nsub, itrScpMax, itrCSlvMax, 
+                        CSlvType, 
+                        epsl_abs, epsl_rel,
+                        feas_tol)
+    return prsscp
 end
 
 """ Discrete OPC problem Parsed from Trajectory Generation"""
@@ -52,26 +63,35 @@ mutable struct SCPPbm
     wvc::Vector{Float64}
 
     """ Properties of standard structure """
-
+    # Abstract index of PTR's parsed discrete OPC
+    n::Int;        # number of all linear equalities
+    nl::Int;        # number of all linear inequalities
+    nsoc:Int;       # number of all soc inequalities
+    
     """ SCP Solution"""
     soluScp::ScpSolu
     hstyScp::ScpHsty
 end
 
 mutable struct ScpSubPbm
-    """ The standard conic problem of solver from discrete OPC""" 
-    # Constraints {K=0, K≤0, K2}
-    nc::Int;        # number of all linear equalities
-    nl::Int;        # number of all linear inequalities
-    nsoc:Int;       # number of all soc inequalities
 
-    # Linear conic problem including Sparse Matrix
-    pgmLnrCon::LnrConPgm;
+    #problem-specific parameters: timeNodes-grid """
+    tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
+    # (Shared) Updated reference Trajectory
+    xref::Vector{Vector{Float64}}
+    uref::Vector{Vector{Float64}}
+    pref::Vector{Vector{Float64}}
+
+    """ The standard conic problem from PTR's parsed discrete OPC""" 
     # The indices of linear conic program's z,c,A,b,G,h
     IdcsLnrConPgm::IdcsLnrConPgm
+    # The Matrix A, G
+    A::Matrix{Float64}
+    G::Matrix{Float64}
+    # Linear conic problem including Sparse Matrix
+    pgmLnrCon::LnrConPgm;
 end
 
-""" Construct ScpSubPbm """
 function ScpSubPbm(scpPrs::ScpParas, scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
     #local variables
     nx, nu, np = trjPbm.nx, trjPbm.nu, trjPbm.np
@@ -82,45 +102,11 @@ function ScpSubPbm(scpPrs::ScpParas, scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
 
     # Define linear objective function c    
 
-    # Define dynamic parts of Ax=b, block c1={X^P_A, X^b_P}
-    # 2 boundaries + (N-1) dynamic nodes constraints, idx0 + idxN + idx(1~(N-1))
-    # assume the initial and terminal constraints follows same equation with dynamics
-    n0=nx;
-    nf=nx;
-    dimsRow_M_P_A = n0 + (N - 1)*nx + nf;   # n0+nf+(N-1)nx
-    dimsCol_M_P_A = nx * N + nu * N + np 
-                    + 2*nx * (N+1);   # same as length(v1)
-    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A);      
-    dims_V_P_b = dimsRow_M_P_A;
 
-    # create the Sparse A matrix: I, J, V
-    dimsSpElem_M_P_A = n0*nx + n0*np + 2*n0     # idx=0, initial constraint
-                       +(N-1)*((nx*nx+nx)+(2*nx*nu)+(nx*np)+2*nx)   
-                       + nf*nx + nf*np + 2*nf;     # idx=N, terminal constraint
     I=zeros(Int64, dimsSpElem_M_P_A);
     J=zeros(Int64, dimsSpElem_M_P_A);
     V=zeros(Float64, dimsSpElem_M_P_A);
 
-    # idx=0, initial constraint, start{(1,1),(1,),(1,),(1,)}
-
-    # idx=1~(N-1), nodes constraints
-    for idx = 0:scpPbm.N
-
-            
-    end
-    # idx=N, terminal constraint
-    
-    l
-
-
-    # Define linear equalities parts
-    size_Mb_C_A =
-    dims_Mb_C_b = 
-    # Define the linear slack parts
-
-
-    # Define trust region parts
-    # Define other SOC slack parts 
 
     
     pgmLnrCon = LnrConPgm(dims_z,  
@@ -163,30 +149,54 @@ struct IdcsLnrConPgm
     dims_TRRG::Int
     dims_SOC::Int
     # indices of constraints
-    
+end
 
-    function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::TrjPbm)::IdcsLnrConPgm
-        nx, nu, np = trjPbm.nx, trjPbm.nu, trjPbm.np
-        N=scpPbm.scpPrs.N;
+function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::TrjPbm)::IdcsLnrConPgm
+    nx, nu, np = trjPbm.nx, trjPbm.nu, trjPbm.np
+    N=scpPbm.scpPrs.N;
 
-        # Define variables z
-        # dynamic system block v1={x;u;p;v+;v-}
-        dims_x = nx * N;  #  state x
-        dims_u = nu * N;  #  control u
-        dims_p = np;  #  parameters p
-        dims_v = 2*nx * (N+1);  #  virtual control v={v+;v-}
-        # all linear (slack) variables block v2={v';s1;...;sml}
-        dims_vc =        # vitual control of nonconvex inequalities
-        dims_sml = trjPbm       # linear slack for K≤0 to K=0 
-        # all trust region and soc slack variables block v3={s1;...;sml}
-        dims_chiEta = trjPbm       # trust reion of dynamic
-        dims_chiEtap = trjPbm      # trust region of parameters
-        dims_chic = trjPbm         # other soc slack variables
+    # Define variables z
+    # dynamic system block v1={x;u;p;v+;v-}
+    dims_x = nx * N;  #  state x
+    dims_u = nu * N;  #  control u
+    dims_p = np;  #  parameters p
+    dims_v = 2*nx * (N+1);  #  virtual control v={v+;v-}
+    # all linear (slack) variables block v2={v';s1;...;sml}
+    dims_vc =        # vitual control of nonconvex inequalities
+    dims_sml = trjPbm       # linear slack for K≤0 to K=0 
+    # all trust region and soc slack variables block v3={s1;...;sml}
+    dims_chiEta = trjPbm       # trust reion of dynamic
+    dims_chiEtap = trjPbm      # trust region of parameters
+    dims_chic = trjPbm         # other soc slack variables
 
-        lgh_z = dims_x + dims_u + dims_p 
-                + 2* dims_v + dims_vc + dims_sml
-                + dims_chiEta + dims_chiEtap + dims_chic;    # z dimenations
+    lgh_z = dims_x + dims_u + dims_p 
+            + 2* dims_v + dims_vc + dims_sml
+            + dims_chiEta + dims_chiEtap + dims_chic;    # z dimenations
 
+    # Define dynamic parts of Ax=b, block c1={X^P_A, X^b_P}
+    # 2 boundaries + (N-1) dynamic nodes constraints, idx0 + idxN + idx(1~(N-1))
+    # assume the initial and terminal constraints follows same equation with dynamics
+    n0=nx;
+    nf=nx;
+    dimsRow_M_P_A = n0 + (N - 1)*nx + nf;   # n0+nf+(N-1)nx
+    dimsCol_M_P_A = nx * N + nu * N + np 
+                    + 2*nx * (N+1);   # same as length(v1)
+    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A);      
+    dims_V_P_b = dimsRow_M_P_A;
+
+    # create the Sparse A matrix: I, J, V
+    dimsSpElem_M_P_A = n0*nx + n0*np + 2*n0     # idx=0, initial constraint
+                       +(N-1)*((nx*nx+nx)+(2*nx*nu)+(nx*np)+2*nx)   
+                       + nf*nx + nf*np + 2*nf;     # idx=N, terminal constraint
+
+    # Define linear equalities parts
+    size_Mb_C_A =
+    dims_Mb_C_b = 
+    # Define the linear slack parts
+
+
+    # Define trust region parts
+    # Define other SOC slack parts 
 
     return Idcs
 end
@@ -218,24 +228,6 @@ mutable struct ScpSolu
     uc
 end
 
-mutable struct ScpHsty
-
+mutable struct ScpHist
 end
 
-""" Solve """
-
-function scpsubpbm_solve!()
-    
-    # solve ScpSubPbm
-
-    # 
-
-end
-
-function scp_upd_dyn!(
-    subPbm::ScpSubPbm,
-    scpPbm::ScpPbm,
-    trjPbm::TrjPbm,
-    )::Nothing
-    
-end

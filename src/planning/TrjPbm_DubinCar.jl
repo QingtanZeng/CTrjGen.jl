@@ -1,9 +1,9 @@
 include("automdl/AutoMDL.jl")
-include("cvxsolver/CVXSOLVER.jl")
-include("utils/UTILS.jl")
+#include("cvxsolver/CVXSOLVER.jl")
+#include("utils/UTILS.jl")
+include("scp/scppbm.jl")
 
 using LinearAlgebra, SparseArrays
-
 
 """ Dubin Car as first constructive example for OPC-SCP"""
 mutable struct TrjPbm_DubinCar
@@ -44,43 +44,53 @@ mutable struct TrjPbm_DubinCar
 
     # Results
 
-
     """ """
 
 end
 
-function TrjPbm_DubinCar(;
-    nx::Int = 3,
-    nu::Int = 2,
-    np::Int = 1,
-    f::
-
-)::TrjPbm_DubinCar
+function TrjPbm_DubinCar()::TrjPbm_DubinCar
+    dynMdlDubin = DynMdl_DubinCar()
     
-    TrjPbm = TrjPbm_DubinCar()
+    TrjPbm = TrjPbm_DubinCar(dynMdlDubin)
     return TrjPbm
 end
 
 
+# function main()::Nothing
+
+# 1.0 configure and Construct all problem and their data-structure
+
+    #Common parameters or precaculated variables
+    tf = 5;    # [s]
+
+    # define a model of dynamic system
+    # define the problem
+    trjdb=TrjPbm_DubinCar()
+
+    # configure SCP parameters
+    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50)
+    prsscp=ScpParas(;prsscptpl...)
+    # Construct SCP problem and its solution
+    scppbm=SCPPbm(prsscp, trjdb)
+    soluscp = ScpSolu()
+    scphist = ScpHist()
+
+    # Construct the sub-problem and its convex solver
+    subpbm=ScpSubPbm()
+
+# 2.0 Initialize Guess, SCP-problem, Sub-problem, and solver
+#       including scaling and preparse
 
 
+# 3.0 iteritive solving loop
 
 
-function main()
+# 4.0 Record, assessment, Plot
+    
+#    return nothing;
+# end
 
-#Common parameters or precaculated variables
-tf = 5;    # [s]
-
-# define a model of dynamic system
-dynMdlDubin = DynMdl_DubinCar()
-
-# define the problem(constraints)
-
-
-
-end
-
-main()
+# main()
 
 
 

@@ -33,11 +33,11 @@ mutable struct DLTVSys
     """
     function DLTVSys(nx::Int, nu::Int, np::Int, N::Int)::DLTVSys        
         # 为向量的每个元素创建一个指定维度的未初始化矩阵
-        An = [Matrix{Float64}(undef, nx, nx) for _ in 1:N]
-        Bkn = [Matrix{Float64}(undef, nx, nu) for _ in 1:N]
-        BkP1n = [Matrix{Float64}(undef, nx, nu) for _ in 1:N]
-        En = [Matrix{Float64}(undef, nx, np) for _ in 1:N]
-        Pn = [Matrix{Float64}(undef, nx, 1) for _ in 1:N] # 假设 Pn 是列向量
+        An = [Matrix{Float64}(undef, nx, nx) for _ in 1:N-1]
+        Bkn = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
+        BkP1n = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
+        En = [Matrix{Float64}(undef, nx, np) for _ in 1:N-1]
+        Pn = [Matrix{Float64}(undef, nx, 1) for _ in 1:N-1] # 假设 Pn 是列向量
     
         # 初始化其他字段
         tNodes = Vector{Float64}(undef, N)
