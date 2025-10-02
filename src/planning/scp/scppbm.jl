@@ -3,7 +3,7 @@ using SparseArrays
 
 """ Enumeration definition"""
 @enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG);
-@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRG);
+@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC);
 
 """ data structure of SCP and its variants """
 mutable struct ScpParas <: SCPParameters
