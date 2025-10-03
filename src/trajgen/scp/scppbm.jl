@@ -1,6 +1,4 @@
-include("../PLANNING.jl")
 using LinearAlgebra, SparseArrays
-
 
 """ Enumeration definition"""
 @enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG);
@@ -48,6 +46,8 @@ mutable struct SCPPbm
     xref::Vector{Vector{Float64}}
     uref::Vector{Vector{Float64}}
     pref::Vector{Vector{Float64}}
+    # (Shared) Scaling Matrix
+    scpScl::SCPScaling;
 
     # 1.1 parsed dynamic system
         dynDLTV::DLTVSys

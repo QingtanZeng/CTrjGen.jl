@@ -1,4 +1,3 @@
-include("SCP.jl")
 
 """ Parser online """
 function scp_upd_dyn!(

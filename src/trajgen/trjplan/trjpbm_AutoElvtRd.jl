@@ -2,14 +2,6 @@
 Overtake trajectory planning case-problem class
 """
 
-# Overtake case problem
-mutable struct TrjPbm_Ovrtk <: AbstTrjPbm
-
-    # Overtake parameters
-
-end
-
-
 
 # Main and Public functions
 function TrjPbm_Ovrtk_Inin(

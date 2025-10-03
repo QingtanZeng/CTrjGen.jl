@@ -60,3 +60,24 @@ function DynMdl_DubinCar()::DynMdl
 
     return dynmdl
 end
+
+mutable struct DynCstr
+    # dynamic control output constraints, derating from lower-level actuators
+    # Control amplitude Box Constraints:
+    uLowThd::Vector{Float64}     # nu*1 low threshold
+    uHighThd::Vector{Float64}    # nu*1 saturation
+    # Control Slope-limited Constraints:
+    uSlopThd::Vector{Float64}    # nu*1
+
+    # dynamic states constraints without collision..., only focus on system
+    # 0-order states' amplitude Box Constraints, mass,location:
+    x0LowThd::Vector{Float64}     # nx0*1 low threshold
+    x0HighThd::Vector{Float64}    # nx0*1 high threshold
+    # 1-order states' amplitude Box Constraints, velocity:
+    x1LowThd::Vector{Float64}     # nx1*1 low threshold
+    x1HighThd::Vector{Float64}    # nx1*1 high threshold
+end
+
+mutable struct DynBdry
+    #
+end
