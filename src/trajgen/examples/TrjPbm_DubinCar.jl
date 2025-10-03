@@ -32,12 +32,10 @@ end
 
 # 2.0 Initialize Guess, SCP-problem, Sub-problem, and solver
 #       including scaling and preparse
-
-    # pre-parse
-    scp_upd_dyn!()
-
+    scp_init!()
 
 # 3.0 iteritive solving loop
+    scp_solve!()
 
 
 # 4.0 Record, assessment, Plot

@@ -39,18 +39,19 @@ mutable struct SCPPbm
     """ SCP parameters """
     scpPrs::ScpParas
     # problem-specific parameters: timeNodes-grid
-    tNodes::Vector{Float64}     # nodes between [0,1], Shared
+    tNodes::Vector{Float64}     # nodes between [0,1]
     
     """ The standard structure for PTR's parsed discrete OPC """
-    # Updated reference Trajectory(Shared)
+    # Updated reference Trajectory
     xref::Vector{Vector{Float64}}
     uref::Vector{Vector{Float64}}
     pref::Vector{Vector{Float64}}
-    # (Shared) Scaling Matrix
-    scpScl::SCPScaling;
+    # Scaling Matrix
+    scpScl::SCPScaling
 
     # 1.1 parsed dynamic system
         dynDLTV::DLTVSys
+        idcsDscrtzSys::IdcsDscrtzSys    # the index of system's 1-D P(tau)
     # 1.2 boundaries
     # 1.3 trust-region constraints
     # 1.4 Affine equalities(Equality constraints: Zero cone K=0, Az=b)
@@ -74,41 +75,49 @@ mutable struct SCPPbm
     """ SCP Solution"""
     soluScp::ScpSolu
     hstyScp::ScpHsty
+
+    function SCPPbm(scpPrs::ScpParas, trjPbm::AbstTrjPbm
+            
+            )::SCPPbm
+
+    end
+
+
 end
 
 function SCPPbm(scpPrs::ScpParas, trjPbm::AbstTrjPbm
-                ;   tNodes::Union{Vector{Float64}, Nothing}=nothing,
-                    xref::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-                    uref::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-                    pref::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-                )::SCPPbm
+            ;   tNodesE::Union{Vector{Float64}, Nothing}=nothing,
+                xrefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
+                urefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
+                prefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
+            )::SCPPbm
     nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
     N = scpPrs.N
     
     # problem-specific parameters: timeNodes-grid
-    tNodes= if isnothing(tNodes) 
-            collect(range(0 ,1, length=scpPrs.N))
-    else tNodes end
+    if isnothing(tNodesE) 
+        tNodes = collect(range(0 ,1, length=scpPrs.N))
+    else tNodes =tNodesE end
     # Updated reference Trajectory(Shared)
-    xref = if isnothing(xref)
-            [Vector{Float64}(undef, trjPbm.dynmdl.nx) for _ in 1:scpPrs.N]
-    else xref end
-    uref = if isnothing(uref)
-            [Vector{Float64}(undef, trjPbm.dynmdl.nx) for _ in 1:scpPrs.N]
-    else uref end
-    pref = if isnothing(pref)
-            [Vector{Float64}(undef, trjPbm.dynmdl.nx) for _ in 1:scpPrs.N]
-    else pref end
+    xref = [zeros(Float64, nx) for _ in 1:scpPrs.N]
+    if !isnothing(xrefE) xref = xrefE end
+
+    uref = [zeros(Float64, nu) for _ in 1:scpPrs.N]
+    if !isnothing(urefE) uref = deepcopy(urefE) end
+
+    pref = [zeros(Float64, np) for _ in 1:scpPrs.N]
+    if !isnothing(prefE) pref = deepcopy(prefE) end
 
     # standar structure for PTR's parsed discrete OPC
     dynDLTV = DLTVSys(nx, nu, np, N)
+    idcsDscrtzSys = IdcsDscrtzSys(trjPbm.dynmdl)
 
     # penalty weight of virtual control and trust region
     wvc = 1.0
     wtrp = 1.0
     wtrp = ones(N)
 
-    scppbm = SCPPbm(scpPrs, tNodes, xref, uref, pref, 
+    scppbm = new(scpPrs, tNodes, xref, uref, pref, 
                     dynDLTV, wtr, wtrp, wvc
                     soluscp, histscp )
     return scppbm
@@ -125,48 +134,48 @@ mutable struct ScpSubPbm
 
     """ The standard conic problem from PTR's parsed discrete OPC""" 
     # The indices of linear conic program's z,c,A,b,G,h
-    IdcsLnrConPgm::IdcsLnrConPgm
+    idcsLnrConPgm::IdcsLnrConPgm
     # The Matrix A, G
     A::Matrix{Float64}
     G::Matrix{Float64}
     # Linear conic problem including Sparse Matrix
     pgmLnrCon::LnrConPgm;
-end
 
-function ScpSubPbm(scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
-    #local variables
-    scpPrs = scpPbm.scpPrs
-    nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
-    N = scpPrs.N
+    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
+        #local variables
+        scpPrs = scpPbm.scpPrs
+        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
+        N = scpPrs.N
 
-    #problem-specific parameters: timeNodes-grid """
-    tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
-    # (Shared) Updated reference Trajectory
-    xref::Vector{Vector{Float64}}
-    uref::Vector{Vector{Float64}}
-    pref::Vector{Vector{Float64}}
+        #problem-specific parameters: timeNodes-grid """
+        tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
+        # (Shared) Updated reference Trajectory
+        xref::Vector{Vector{Float64}}
+        uref::Vector{Vector{Float64}}
+        pref::Vector{Vector{Float64}}
 
-    """ The standard conic problem from PTR's parsed discrete OPC""" 
-    # The indices of linear conic program's z,c,A,b,G,h
-    IdcsLnrConPgm::IdcsLnrConPgm
+        """ The standard conic problem from PTR's parsed discrete OPC""" 
+        # The indices of linear conic program's z,c,A,b,G,h
+        idcsLnrConPgm::IdcsLnrConPgm
 
-    dims_z, dims_b, 
-    
-    
-    # The Matrix A, G
-    A = zeros(dims_b, dims_z)
-    G = zeros(dims_b, dims_z)
-    G::Matrix{Float64}
+        dims_z, dims_b, 
+        
+        
+        # The Matrix A, G
+        A = zeros(dims_b, dims_z)
+        G = zeros(dims_b, dims_z)
+        G::Matrix{Float64}
 
-    # Define linear objective function c    
-    I=zeros(Int64, dimsSpElem_M_P_A);
-    J=zeros(Int64, dimsSpElem_M_P_A);
-    V=zeros(Float64, dimsSpElem_M_P_A);
-    # Linear conic problem including Sparse Matrix
-    pgmLnrCon::LnrConPgm;
+        # Define linear objective function c    
+        I=zeros(Int64, dimsSpElem_M_P_A);
+        J=zeros(Int64, dimsSpElem_M_P_A);
+        V=zeros(Float64, dimsSpElem_M_P_A);
+        # Linear conic problem including Sparse Matrix
+        pgmLnrCon::LnrConPgm;
 
-    subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
-    return subpbm
+        subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
+        return subpbm
+    end
 end
 
 struct IdcsLnrConPgm
@@ -272,6 +281,10 @@ mutable struct ScpSolu
     cost::Float64
     
     # Risk/Feasibility assessment
+    # dynamics feasibility
+    dfctDyn::Vector{Float64}        # N-1 nodes
+    flgFsbDynVec::Vector{Bool}      # N-1 nodes
+    flgFsbDyn::Boll                 # overall flag
 
     # Discrete-time Trajectory: tNodes, x, u, p
     tNodes::Vector{Float64}
@@ -286,4 +299,3 @@ end
 
 mutable struct ScpHist
 end
-

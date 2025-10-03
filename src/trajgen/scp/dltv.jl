@@ -14,7 +14,7 @@ mutable struct DLTVSys
     Pn::Vector{Matrix{Float64}}
 
     # Common info
-    timeDiscrtz::Float64        # the time used in system's discretization
+    timeDiscrtz::Float64        # [s] time taken in system's discretization and update
 
     """
         DLTV(nx, nu, np, nv, N)
@@ -40,13 +40,19 @@ mutable struct DLTVSys
         Pn = [Matrix{Float64}(undef, nx, 1) for _ in 1:N-1] # 假设 Pn 是列向量
     
         # 初始化其他字段
-        tNodes = Vector{Float64}(undef, N)
-        xref = [Vector{Float64}(undef, nx) for _ in 1:N]
-        uref = [Vector{Float64}(undef, nu) for _ in 1:N]
-        pref = [Vector{Float64}(undef, np) for _ in 1:N]
+        tNodes = Vector{Float64}()
+        xref = Vector{Vector{Float64}(undef, nx)}()
+        uref = Vector{Vector{Float64}(undef, nx)}()
+        pref = Vector{Vector{Float64}(undef, nx)}()
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
         return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, Pn, timeDiscrtz)
     end
+end
+
+function DLTVSys_upd!( 
+
+    )::Nothing
+
 end

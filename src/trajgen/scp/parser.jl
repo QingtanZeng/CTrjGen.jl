@@ -1,17 +1,20 @@
 
-""" Parser online """
+""" Transscription and Parser online """
 function scp_upd_dyn!(
     subPbm::ScpSubPbm,
     scpPbm::ScpPbm,
     trjPbm::TrjPbm,
     )::Nothing
     
-    discre
-
+    tstart = Int(time_ns())
+    dscrtz!()
+    dynDLTV.timeDiscrtz = Int(time_ns() - tstart) / 1e9
+    return nothing
 end
 
 
-function ()
-    
+function scp_upd_!()
+end
+function scp_upd_uBox!()
 end
 

@@ -33,15 +33,14 @@ mutable struct LnrConPgm
     h::Vector{Float64};     # Array of size m, RHS vector of cone constraint
     G::SparseMatrixCSC{Float64, Int64};   # Sparse G matrix data array (column compressed storage)
 
-end
+    function LnrConPgm(
 
-function LnrConPgm(
-
-)::LnrConPgm
+        )::LnrConPgm
+    end
 end
 
 mutable struct SoluLnrConPgm
-#  updated states of solver in one iteraion of one subPbm
+    #  updated states of solver in one iteraion of one subPbm
     z::Vector{Float64}  # primal variables
                         # dual variables
     pcost::Float64
@@ -52,14 +51,14 @@ mutable struct SoluLnrConPgm
 end
 
 mutable struct HistLnrConPgm
-# history states of solver in one subPbm
+    # history states of solver in one subPbm
     pgm_hist::Vector{SoluLnrConPgm}
 end
 
 
 function LnrConPgm_setup(
     lnrConPgm::LnrConPgm,
-)::Any
+    )::Any
     pwork = ECOS.ECOS_setup(
                 lnrConPgm.n,
                 lnrConPgm.m,

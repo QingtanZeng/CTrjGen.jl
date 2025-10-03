@@ -1,25 +1,53 @@
-# ..:: Globals ::..
-
-const T = Types
-const RealValue = T.RealTypes
-const RealArray = T.RealArray
-const RealVector = T.RealVector
-const RealMatrix = T.RealMatrix
-const Optional = Types.Optional
-
-
-
-function rk4_core_step(f::T.Func, s_k::RealVector, t::RealValue, t_kP1::RealValue)
+"""
+    4th Runge-Kutta Core Solver Step
+"""
+function rk4_core_step(
+    Drvt::T.Func, 
+    x::RealVector, 
+    t::RealValue, 
+    tp::RealValue)::RealVector
     # Calculate the time step
-    dt = t_kP1 - t;
-
+   h = tp-t;
+   
     # Calculate the intermediate slopes
-    s1 = func(t, s_k);
-    s2 = func(t+dt/2, s_k+dt*s1/2);
-    s3 = func(t+dt/2, s_k+dt*s2/2);
-    s4 = func(t+dt, s_k+dt*s3);
+   s1=Drvt(t, x);
+   s2=Drvt(t + h/2, x + h/2 * s1);
+   s3=Drvt(t + h/2, x+ h/2* s2);
+   s4=Drvt(t + h, x + h*s3);
 
-    s_kPls1 = s_k + dt/6* (s1+2*(s2+s3)+s4);
+   xp = x + h/6 * (s1+ 2*(s2+s3) + s4);
 
-    return s_kPls1
+   return xp;    
+end
+
+"""
+    RK4 Interface
+    Nomalized function and duraiton are best
+"""
+function rk4(
+    Drvr::T.Func,
+    x0::RealVector,
+    tspan::RealVector;
+    full::Bool = false,
+    actions::T.SpecialIntegrationActions = T.SpecialIntegrationActions(undef, 0),
+)::Unione{RealVector, RealMatrix}
+    X = rk4_generic;
+    return X;    
+end
+
+"""
+    RK4 main function
+"""
+function rk4_generic(
+
+
+)
+
+    for k =2:N
+        if full
+            X[:,k] = rk4_core_step(Drvr, X[:,k-1], tspan[k-1], tspan[k]);
+            for act in actions
+                X[act[1], k] = act[2](X[act[1], k]);
+            end
+
 end
