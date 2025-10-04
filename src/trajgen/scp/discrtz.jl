@@ -15,7 +15,7 @@ struct IdcsDscrtzSys
     idx_Bk::UnitRange{Int}
     idx_BkP1::UnitRange{Int}
     idx_E::UnitRange{Int}
-    lgh_P::Int;
+    lgh_P::Int64;
 
     function IdcsDscrtzSys(dynmdl::DynMdl)::IdcsDscrtzSys
         nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
@@ -32,6 +32,7 @@ struct IdcsDscrtzSys
     end
 end
 
+#=
 """
     Obtain the discrete-time model(transition matrix) for a continuous-time dynamics system
     Called at two places: 1) initialization, 2) after solving a sub-problem
@@ -138,6 +139,7 @@ function derivP(P::Vector{Float64}, idcs::IdcsDscrtzSys,
 
     return ddt_P
 end
+=#
 
 
 

@@ -11,32 +11,28 @@ using ECOS
 #    (where K is a composite cone)
 mutable struct LnrConPgm
     # variables vector z
-    n::Int;        # Number of variables
+    n::Int64;        # Number of variables
     z::Vector{Float64};     # Array of size n, variables
 
     # linear objective function: Min c'z
     c::Vector{Float64};     # Array of size n, cost function weights
 
     # Equality constraints: Zero cone K=0, Ax=b, from linear constraints with slack variables
-    p::Int;                 # Number of equality constraints, = length(b)
+    p::Int64;                 # Number of equality constraints, = length(b)
 
     b::Vector{Float64};     # RHS vector of equalities (can be NULL if no equalities are present)
     A::SparseMatrixCSC{Float64, Int64};   # Sparse A matrix data array (column compressed storage) (can be all NULL if no equalities are present)  
 
     # inequalities constraints {K>=0, SOC K2}, by h - Gx ∈ K
-    m::Int;     # Number of inequality constraints, = length(G rows, or h)
-    l::Int;     # Dimension of positive orthant
-    ncones::Int;    # Number of second order cones
+    m::Int64;     # Number of inequality constraints, = length(G rows, or h)
+    l::Int64;     # Dimension of positive orthant
+    ncones::Int64;    # Number of second order cones
     q::Vector{Int};     # Array of length 'ncones', defines the dimension of each cone
-    nex:Int;      # Number of exponential cones, =0, not used in real-time
+    nex::Int64;      # Number of exponential cones, =0, not used in real-time
 
     h::Vector{Float64};     # Array of size m, RHS vector of cone constraint
     G::SparseMatrixCSC{Float64, Int64};   # Sparse G matrix data array (column compressed storage)
 
-    function LnrConPgm(
-
-        )::LnrConPgm
-    end
 end
 
 mutable struct SoluLnrConPgm
@@ -46,8 +42,19 @@ mutable struct SoluLnrConPgm
     pcost::Float64
     dcost::Float64
     gap::Float64
-    
     tau::Float64
+
+    # Inner constructor with arguments
+    function SoluLnrConPgm()::SoluLnrConPgm
+        z = Vector{Float64}()
+        pcost = 0.0
+        dcost = 0.0
+        gap = 0.0
+        tau = 0.0
+        
+       solupgm = new(z, pcost, dcost, gap, tau)
+       return solupgm
+    end
 end
 
 mutable struct HistLnrConPgm
@@ -55,10 +62,10 @@ mutable struct HistLnrConPgm
     pgm_hist::Vector{SoluLnrConPgm}
 end
 
-
+#=
 function LnrConPgm_setup(
-    lnrConPgm::LnrConPgm,
-    )::Any
+                        lnrConPgm::LnrConPgm,
+                        )::Nothing
     pwork = ECOS.ECOS_setup(
                 lnrConPgm.n,
                 lnrConPgm.m,
@@ -76,5 +83,6 @@ function LnrConPgm_setup(
                 lnrConPgm.c,
                 lnrConPgm.h,
                 lnrConPgm.b, )
-    return none;
+    return nothing
 end
+=#

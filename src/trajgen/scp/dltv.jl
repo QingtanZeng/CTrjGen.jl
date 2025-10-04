@@ -31,7 +31,7 @@ mutable struct DLTVSys
     # Returns
     - `dyn`: the dynamics, with empty (undefined) matrices.
     """
-    function DLTVSys(nx::Int, nu::Int, np::Int, N::Int)::DLTVSys        
+    function DLTVSys(nx::Int64, nu::Int64, np::Int64, N::Int64)::DLTVSys        
         # 为向量的每个元素创建一个指定维度的未初始化矩阵
         An = [Matrix{Float64}(undef, nx, nx) for _ in 1:N-1]
         Bkn = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
@@ -41,9 +41,9 @@ mutable struct DLTVSys
     
         # 初始化其他字段
         tNodes = Vector{Float64}()
-        xref = Vector{Vector{Float64}(undef, nx)}()
-        uref = Vector{Vector{Float64}(undef, nx)}()
-        pref = Vector{Vector{Float64}(undef, nx)}()
+        xref = Vector{Vector{Float64}}()
+        uref = Vector{Vector{Float64}}()
+        pref = Vector{Vector{Float64}}()
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例

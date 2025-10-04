@@ -1,6 +1,8 @@
-include("../PLANNING.jl")
-include("../trjplan/trjpbm.jl")
 include("../mdl/auto.jl")
+include("../trjplan/trjpbm.jl")
+include("../cvxslv/lnrConPgm.jl")
+include("../scp/dltv.jl")
+include("../scp/discrtz.jl")
 include("../scp/scppbm.jl")
 
 using LinearAlgebra, SparseArrays
@@ -37,7 +39,7 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     return autotrjpbm
 end
 
-# function main()::Nothing
+#function main()::Nothing
 
 # 1.0 configure and Construct all problem and their data-structure
 
@@ -51,7 +53,13 @@ end
     prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
-    scppbm=SCPPbm(prsscp, trjdb)
+    sclscp = SCPScaling(trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np)
+    wtr = ones(Float64, prsscp.N)
+    wtrp = 1.0
+    wvc = 1.0
+    scppbm=SCPPbm(trjdb, prsscp, 
+                    nothing, nothing, nothing, nothing,
+                    sclscp, wtr, wtrp, wvc)
 
     # Construct the sub-problem and its convex solver
     subpbm=ScpSubPbm()

@@ -1,8 +1,8 @@
 struct DynMdl
    # Model dimenations
-    nx::Int
-    nu::Int
-    np::Int
+    nx::Int64
+    nu::Int64
+    np::Int64
 
     # Dynamics system
     f::Function
@@ -75,13 +75,13 @@ mutable struct DynCstr
     # 0-order states' amplitude Box Constraints, mass,location:
     # Not each state need owm BoxLimit, so formula:
     # xO0L <= (x_Order0=I_O0*x) <= xO0H
-    nx_O0::Int
+    nx_O0::Int64
     I_O0::Matrix{Float64}          # nxO0*nx
     xO0LowThd::Vector{Float64}     # nxO0*1 low threshold
     xO0HighThd::Vector{Float64}    # nxO0*1 high threshold
     # 1-order states' amplitude Box Constraints, velocity:
     # xO1L <= (x_Order1=I_O1*x) <= xO1H
-    nx_O1::Int
+    nx_O1::Int64
     I_O1::Matrix{Float64}          # nxO1*nx
     xO1LowThd::Vector{Float64}     # nxO1*1 low threshold
     xO1HighThd::Vector{Float64}    # nxO1*1 high threshold
