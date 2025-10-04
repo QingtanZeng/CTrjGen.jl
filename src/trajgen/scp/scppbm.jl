@@ -80,7 +80,7 @@ mutable struct ScpSolu          # private data protection
     tNodes::Vector{Float64}         # (Shared) by SCPPbm
     xd::Vector{Vector{Float64}}
     ud::Vector{Vector{Float64}}
-    p::Vector{Vector{Float64}}
+    p::Vector{Float64}
 
     # continuous-time trjPbm
     # xc
@@ -142,7 +142,7 @@ mutable struct SCPPbm           # private data protection
     # Updated reference Trajectory
     xref::Vector{Vector{Float64}}
     uref::Vector{Vector{Float64}}
-    pref::Vector{Vector{Float64}}
+    pref::Vector{Float64}
     # Scaling Matrix
     scpScl::SCPScaling
 
@@ -337,7 +337,7 @@ mutable struct ScpSubPbm        # private data protection
     # (Shared) Updated reference Trajectory
     xref::Vector{Vector{Float64}}
     uref::Vector{Vector{Float64}}
-    pref::Vector{Vector{Float64}}
+    pref::Vector{Float64}
 
     """ The standard conic problem from PTR's parsed discrete OPC"""
     # The indices of linear conic program's z,c,A,b,G,h
@@ -362,7 +362,7 @@ mutable struct ScpSubPbm        # private data protection
         # (Shared) Updated reference Trajectory
         xref::Vector{Vector{Float64}}
         uref::Vector{Vector{Float64}}
-        pref::Vector{Vector{Float64}}
+        pref::Vector{Float64}
 
         # The indices of linear conic program's z,c,A,b,G,h
         idcsLnrConPgm::IdcsLnrConPgm

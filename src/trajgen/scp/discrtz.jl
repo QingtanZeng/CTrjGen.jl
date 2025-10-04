@@ -40,7 +40,7 @@ end
     Output: DLTVSys
 """
 function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}, 
-                    pref::Vector{Vector{Float64}},
+                    pref::Vector{Float64},
                     subpbm::ScpSubPbm, scppbm::SCPPbm, trjPbm::AbstTrjPbm)::Nothing
     # local variables
     nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np

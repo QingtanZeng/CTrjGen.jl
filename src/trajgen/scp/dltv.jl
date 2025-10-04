@@ -4,7 +4,7 @@ mutable struct DLTVSys
     tNodes::Vector{Float64}
     xref::Vector{Vector{Float64}}
     uref::Vector{Vector{Float64}}
-    pref::Vector{Vector{Float64}}
+    pref::Vector{Float64}
 
     # Parsed discrete-time state-equation of dynamic system
     An::Vector{Matrix{Float64}}
@@ -43,7 +43,7 @@ mutable struct DLTVSys
         tNodes = Vector{Float64}()
         xref = Vector{Vector{Float64}}()
         uref = Vector{Vector{Float64}}()
-        pref = Vector{Vector{Float64}}()
+        pref = Vector{Float64}()
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
