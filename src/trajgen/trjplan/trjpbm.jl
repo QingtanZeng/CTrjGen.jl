@@ -33,6 +33,10 @@ mutable struct AutoTrjPbm <: AbstTrjPbm
     spdHighThd::Float64
     spdLowThd::Float64      # as soft constraint on elevated road
 
+    """ 2.4 parameters Constraints"""
+    pLowThd::Vector{Float64}     # np*1 low threshold
+    pHighThd::Vector{Float64}    # np*1 high threshold
+
     """III. Collision-free"""
     # Except 2-D position states, RSS models are also used in collision-free
     """ 3.1 lane and road boundary """

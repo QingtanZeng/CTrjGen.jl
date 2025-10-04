@@ -1,25 +1,51 @@
-include("PLANNING.jl")
+include("../PLANNING.jl")
+include("../trjplan/trjpbm.jl")
+include("../mdl/auto.jl")
+include("../scp/scppbm.jl")
+
 using LinearAlgebra, SparseArrays
 
 
-function AutoTrjPbm_DubinCar()::AutoTrjPbm
-    dynMdlDubin = DynMdl_DubinCar()
-    
-    autotrjpbm = AutoTrjPbm(dynMdlDubin)
+struct AutoTrjPbm_DubinCar <: AbstTrjPbm
+    # 动力学模型
+    dynmdl::DynMdl
+    # 动力学约束
+    dyncstr::DynCstr
+end
+function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
+    dynmdldubin = DynMdl_DubinCar()
+
+    wAbsMax = 5/360*2*pi            # [5ᵒ/s]>[rad/s] 朝向角 角速度
+    spdMin = 60*1e3/3600; spdMax = 135*1e3/3600;     # [Km/h]>[m/s] 高速行驶速度区间
+    uHighThd = [spdMax, wAbsMax]    # the highest limit of [spd, w]
+    uLowThd  = [spdMin, -wAbsMax]         # the lowest limit of [spd, w]
+
+    nx_O0 = 2
+    I_O0 = [1 0 0;
+            0 0 1]
+    xO0HighThd = [2.5*3.75, 5/360*2*pi]     # 横向三车道; 朝向角最大5°
+    xO0LowThd  = [0.5*3.75, -5/360*2*pi]    
+
+    pLowThd = [8.0,]    # 300m 135km/h 最短需要8s
+    pHighThd = [16.0,]  # 300m 80km/h 最长需要14s
+
+    dyncstr = DynCstr(uLowThd, uHighThd, nothing,
+                      nx_O0, I_O0, xO0LowThd, xO0HighThd,   # 0-order state constraints
+                      0, zeros(0,dynmdldubin.nu), Float64[], Float64[],  # 1-order state constraints not used
+                      pLowThd, pHighThd)
+    autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr)
     return autotrjpbm
 end
-
 
 # function main()::Nothing
 
 # 1.0 configure and Construct all problem and their data-structure
 
     #Common parameters or precaculated variables
-    tf = 5;    # [s]
 
     # define a model of dynamic system
     # define the problem
-    trjdb=TrjPbm_DubinCar()
+    trjdb=AutoTrjPbm_DubinCar()
 
     # configure SCP parameters
     prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50)
@@ -44,6 +70,3 @@ end
 # end
 
 # main()
-
-
-

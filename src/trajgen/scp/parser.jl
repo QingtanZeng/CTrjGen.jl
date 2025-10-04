@@ -3,7 +3,7 @@
 function scp_upd_dyn!(
     subPbm::ScpSubPbm,
     scpPbm::ScpPbm,
-    trjPbm::TrjPbm,
+    trjPbm::AbstTrjPbm,
     )::Nothing
     
     tstart = Int(time_ns())

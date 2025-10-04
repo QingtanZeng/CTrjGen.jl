@@ -1,25 +1,24 @@
 using LinearAlgebra, SparseArrays
 
 """ Enumeration definition"""
-@enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG);
-@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC);
+@enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG)
+@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC)
 
 """ data structure of SCP and its variants """
 mutable struct ScpParas
-    N::Int;         # Number of temporal grid nodes
-    Nsub::Int;      # Number of subinterval integration
+    N::Int         # Number of temporal grid nodes
+    Nsub::Int      # Number of subinterval integration
 
-    itrScpMax::Int;     # Maximum outer loop number
-    itrCSlvMax::Int;     # Maximum internal loop number
+    itrScpMax::Int     # Maximum outer loop number
+    itrCSlvMax::Int     # Maximum internal loop number
 
-    CSlvType::Int;      # Specify default solver type
+    CSlvType::Int      # Specify default solver type
 
-    epsl_abs::Float64;    # Absolute convergence tolerance
-    epsl_rel::Float64;    # Relative convergence tolerance
-    feas_tol::Float64;    # Dynamic feasibility tolerance
-    q_exit::RealTypes    # Stopping criterion norm
+    epsl_abs::Float64    # Absolute convergence tolerance
+    epsl_rel::Float64    # Relative convergence tolerance
+    feas_tol::Float64    # Dynamic feasibility tolerance
+    q_exit::Float64    # Stopping criterion norm
 end
-
 function ScpParas(; N::Int=10, Nsub::Int=10, 
                     itrScpMax::Int=30, itrCSlvMax::Int=50, 
                     CSlvType::Int=0,
@@ -35,7 +34,7 @@ function ScpParas(; N::Int=10, Nsub::Int=10,
 end
 
 """ Discrete OPC problem Parsed from Trajectory Generation"""
-mutable struct SCPPbm
+mutable struct SCPPbm           # private data protection
     """ SCP parameters """
     scpPrs::ScpParas
     # problem-specific parameters: timeNodes-grid
@@ -68,62 +67,62 @@ mutable struct SCPPbm
 
     """ Properties of standard structure """
     # Abstract index of PTR's parsed discrete OPC
-    #n::Int;        # number of all linear equalities
-    #nl::Int;        # number of all linear inequalities
-    #nsoc:Int;       # number of all soc inequalities
+    #n::Int        # number of all linear equalities
+    #nl::Int        # number of all linear inequalities
+    #nsoc:Int       # number of all soc inequalities
     
     """ SCP Solution"""
     soluScp::ScpSolu
     hstyScp::ScpHsty
 
-    function SCPPbm(scpPrs::ScpParas, trjPbm::AbstTrjPbm
-            
+    # internal constructor for custimized data assignment
+    function SCPPbm(trjPbm::AbstTrjPbm, 
+                    scpPrs::ScpParas, 
+                    tNodesE::Union{Vector{Float64}, Nothing},
+                    xrefE::Union{Vector{Vector{Float64}}, Nothing},
+                    urefE::Union{Vector{Vector{Float64}}, Nothing},
+                    prefE::Union{Vector{Vector{Float64}}, Nothing},
+                    scpScl::SCPScaling,
+                    wtr::Vector{Float64},
+                    wtrp::Float64,
+                    wvc::Float64,
             )::SCPPbm
+        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
+        N = scpPrs.N
+        
+        # problem-specific parameters: timeNodes-grid
+        if isnothing(tNodesE) 
+            tNodes = collect(range(0 ,1, length=N))
+        else tNodes = copy(tNodesE) end
+        # Updated reference Trajectory(Shared)
+        xref = [zeros(Float64, nx) for _ in 1:scpPrs.N]
+        if !isnothing(xrefE) xref = xrefE end
 
+        uref = [zeros(Float64, nu) for _ in 1:scpPrs.N]
+        if !isnothing(urefE) uref = deepcopy(urefE) end
+
+        pref = [zeros(Float64, np) for _ in 1:scpPrs.N]
+        if !isnothing(prefE) pref = deepcopy(prefE) end
+
+        # standar structure for PTR's parsed discrete OPC
+        dynDLTV = DLTVSys(nx, nu, np, N)
+        idcsDscrtzSys = IdcsDscrtzSys(trjPbm.dynmdl)
+
+        # penalty weight of virtual control and trust region
+        wvc = 1.0
+        wtrp = 1.0
+        wtrp = ones(N)
+
+        scppbm = new(scpPrs, tNodes, xref, uref, pref, 
+                        dynDLTV, wtr, wtrp, wvc
+                        soluscp, histscp )
+        return scppbm
     end
-
-
 end
 
-function SCPPbm(scpPrs::ScpParas, trjPbm::AbstTrjPbm
-            ;   tNodesE::Union{Vector{Float64}, Nothing}=nothing,
-                xrefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-                urefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-                prefE::Union{Vector{Vector{Float64}}, Nothing}=nothing,
-            )::SCPPbm
-    nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
-    N = scpPrs.N
-    
-    # problem-specific parameters: timeNodes-grid
-    if isnothing(tNodesE) 
-        tNodes = collect(range(0 ,1, length=scpPrs.N))
-    else tNodes =tNodesE end
-    # Updated reference Trajectory(Shared)
-    xref = [zeros(Float64, nx) for _ in 1:scpPrs.N]
-    if !isnothing(xrefE) xref = xrefE end
 
-    uref = [zeros(Float64, nu) for _ in 1:scpPrs.N]
-    if !isnothing(urefE) uref = deepcopy(urefE) end
 
-    pref = [zeros(Float64, np) for _ in 1:scpPrs.N]
-    if !isnothing(prefE) pref = deepcopy(prefE) end
-
-    # standar structure for PTR's parsed discrete OPC
-    dynDLTV = DLTVSys(nx, nu, np, N)
-    idcsDscrtzSys = IdcsDscrtzSys(trjPbm.dynmdl)
-
-    # penalty weight of virtual control and trust region
-    wvc = 1.0
-    wtrp = 1.0
-    wtrp = ones(N)
-
-    scppbm = new(scpPrs, tNodes, xref, uref, pref, 
-                    dynDLTV, wtr, wtrp, wvc
-                    soluscp, histscp )
-    return scppbm
-end
-
-mutable struct ScpSubPbm
+mutable struct ScpSubPbm        # private data protection
 
     #problem-specific parameters: timeNodes-grid """
     tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
@@ -139,9 +138,9 @@ mutable struct ScpSubPbm
     A::Matrix{Float64}
     G::Matrix{Float64}
     # Linear conic problem including Sparse Matrix
-    pgmLnrCon::LnrConPgm;
+    pgmLnrCon::LnrConPgm
 
-    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::TrjPbm)::ScpSubPbm
+    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::ScpSubPbm
         #local variables
         scpPrs = scpPbm.scpPrs
         nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
@@ -167,11 +166,11 @@ mutable struct ScpSubPbm
         G::Matrix{Float64}
 
         # Define linear objective function c    
-        I=zeros(Int64, dimsSpElem_M_P_A);
-        J=zeros(Int64, dimsSpElem_M_P_A);
-        V=zeros(Float64, dimsSpElem_M_P_A);
+        I=zeros(Int64, dimsSpElem_M_P_A)
+        J=zeros(Int64, dimsSpElem_M_P_A)
+        V=zeros(Float64, dimsSpElem_M_P_A)
         # Linear conic problem including Sparse Matrix
-        pgmLnrCon::LnrConPgm;
+        pgmLnrCon::LnrConPgm
 
         subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
         return subpbm
@@ -216,16 +215,16 @@ struct IdcsLnrConPgm
     # indices of constraints
 end
 
-function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::TrjPbm)::IdcsLnrConPgm
+function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::IdcsLnrConPgm
     nx, nu, np = trjPbm.nx, trjPbm.nu, trjPbm.np
-    N=scpPbm.scpPrs.N;
+    N=scpPbm.scpPrs.N
 
     # Define variables z
     # dynamic system block v1={x;u;p;v+;v-}
-    dims_x = nx * N;  #  state x
-    dims_u = nu * N;  #  control u
-    dims_p = np;  #  parameters p
-    dims_v = 2*nx * (N+1);  #  virtual control v={v+;v-}
+    dims_x = nx * N  #  state x
+    dims_u = nu * N  #  control u
+    dims_p = np  #  parameters p
+    dims_v = 2*nx * (N+1)  #  virtual control v={v+;v-}
     # all linear (slack) variables block v2={v';s1;...;sml}
     dims_vc =        # vitual control of nonconvex inequalities
     dims_sml = trjPbm       # linear slack for K≤0 to K=0 
@@ -236,23 +235,23 @@ function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::TrjPbm)::IdcsLnrConPgm
 
     lgh_z = dims_x + dims_u + dims_p 
             + 2* dims_v + dims_vc + dims_sml
-            + dims_chiEta + dims_chiEtap + dims_chic;    # z dimenations
+            + dims_chiEta + dims_chiEtap + dims_chic    # z dimenations
 
     # Define dynamic parts of Ax=b, block c1={X^P_A, X^b_P}
     # 2 boundaries + (N-1) dynamic nodes constraints, idx0 + idxN + idx(1~(N-1))
     # assume the initial and terminal constraints follows same equation with dynamics
-    n0=nx;
-    nf=nx;
-    dimsRow_M_P_A = n0 + (N - 1)*nx + nf;   # n0+nf+(N-1)nx
+    n0=nx
+    nf=nx
+    dimsRow_M_P_A = n0 + (N - 1)*nx + nf   # n0+nf+(N-1)nx
     dimsCol_M_P_A = nx * N + nu * N + np 
-                    + 2*nx * (N+1);   # same as length(v1)
-    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A);      
-    dims_V_P_b = dimsRow_M_P_A;
+                    + 2*nx * (N+1)   # same as length(v1)
+    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A)      
+    dims_V_P_b = dimsRow_M_P_A
 
     # create the Sparse A matrix: I, J, V
     dimsSpElem_M_P_A = n0*nx + n0*np + 2*n0     # idx=0, initial constraint
                        +(N-1)*((nx*nx+nx)+(2*nx*nu)+(nx*np)+2*nx)   
-                       + nf*nx + nf*np + 2*nf;     # idx=N, terminal constraint
+                       + nf*nx + nf*np + 2*nf     # idx=N, terminal constraint
 
     # Define linear equalities parts
     size_Mb_C_A =
@@ -266,7 +265,7 @@ function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::TrjPbm)::IdcsLnrConPgm
     return Idcs
 end
 
-mutable struct ScpSolu
+mutable struct ScpSolu          # private data protection
     # Properties of SCP
     flgFsb::Bool
     flgOpt::Bool
@@ -297,5 +296,5 @@ mutable struct ScpSolu
     uc
 end
 
-mutable struct ScpHist
+mutable struct ScpHist          # private data protection
 end
