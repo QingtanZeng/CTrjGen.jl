@@ -1,5 +1,8 @@
 
-""" Transscription and Parser online """
+""" Transscription and Parser online 
+    From  [Trajectory Generation Problem 0&1] and [Discrete Conic Problem 3]
+    to SCPPbm and SubPbm Simultaneously
+"""
 function scp_upd_dyn!(
     subPbm::ScpSubPbm,
     scpPbm::ScpPbm,
@@ -12,9 +15,9 @@ function scp_upd_dyn!(
     return nothing
 end
 
-
 function scp_upd_!()
 end
+
 function scp_upd_uBox!()
 end
 

@@ -4,7 +4,7 @@ using LinearAlgebra, SparseArrays
 @enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG)
 @enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC)
 
-""" data structure of SCP and its variants """
+""" Sub-Data structure of SCP-Problem 2"""
 mutable struct ScpParas
     N::Int         # Number of temporal grid nodes
     Nsub::Int      # Number of subinterval integration
@@ -58,7 +58,6 @@ mutable struct SCPScaling
         return scpScl
     end
 end
-
 mutable struct ScpSolu          # private data protection
     """ iteritive buffer each sub-problem results """
     # Properties of SCP
@@ -122,11 +121,17 @@ mutable struct ScpSolu          # private data protection
 
 
 end
-
 mutable struct ScpHist          # private data protection
 end
 
-""" Discrete OPC problem Parsed from Trajectory Generation"""
+""" Discrete OPC problem Transcription and Parsed from [Trajectory Generation Problem 0&1]"""
+#=  
+1. discrete cost with standard linear or quadratic formula from Problem 0&1
+2. affine and conic constraits with standard conic classes  from Problem 0&1
+3. standard structure of PTR: 
+4. configuration, parameters of PTR; Intermediate results and data from ScpSubPbm; History;
+5. all SCP methods: Constructer, Parser
+=#
 mutable struct SCPPbm           # private data protection
     """ SCP parameters """
     scpPrs::ScpParas
@@ -226,69 +231,7 @@ mutable struct SCPPbm           # private data protection
     end
 end
 
-#=
-mutable struct ScpSubSolu
-    solupgm::SoluLnrConPgm
-end
-
-mutable struct ScpSubPbm        # private data protection
-
-    #problem-specific parameters: timeNodes-grid """
-    tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
-    # (Shared) Updated reference Trajectory
-    xref::Vector{Vector{Float64}}
-    uref::Vector{Vector{Float64}}
-    pref::Vector{Vector{Float64}}
-
-    """ The standard conic problem from PTR's parsed discrete OPC"""
-    # The indices of linear conic program's z,c,A,b,G,h
-    idcsLnrConPgm::IdcsLnrConPgm
-    # The Matrix A, G
-    A::Matrix{Float64}
-    G::Matrix{Float64}
-    # Linear conic problem including Sparse Matrix
-    pgmLnrCon::LnrConPgm
-    
-    # The solution of subPbm
-    solusubpbm::ScpSubSolu
-
-    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::ScpSubPbm
-        #local variables
-        scpPrs = scpPbm.scpPrs
-        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
-        N = scpPrs.N
-
-        #problem-specific parameters: timeNodes-grid """
-        tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
-        # (Shared) Updated reference Trajectory
-        xref::Vector{Vector{Float64}}
-        uref::Vector{Vector{Float64}}
-        pref::Vector{Vector{Float64}}
-
-        """ The standard conic problem from PTR's parsed discrete OPC"""
-        # The indices of linear conic program's z,c,A,b,G,h
-        idcsLnrConPgm::IdcsLnrConPgm
-
-        dims_z, dims_b,
-
-
-        # The Matrix A, G
-        A = zeros(dims_b, dims_z)
-        G = zeros(dims_b, dims_z)
-        G::Matrix{Float64}
-
-        # Define linear objective function c    
-        I = zeros(Int64, dimsSpElem_M_P_A)
-        J = zeros(Int64, dimsSpElem_M_P_A)
-        V = zeros(Float64, dimsSpElem_M_P_A)
-        # Linear conic problem including Sparse Matrix
-        pgmLnrCon::LnrConPgm
-
-        subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
-        return subpbm
-    end
-end
-
+""" Sub-Data structure of Sub-Problem 3 """
 struct IdcsLnrConPgm
     # The indices of linear conic program's z,c,A,b,G,h
     # dimenations of variables
@@ -375,4 +318,72 @@ function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::IdcsLnrConPgm
 
             return Idcs
 end
+mutable struct ScpPgmParas
+end
+mutable struct ScpSubSolu
+    solupgm::SoluLnrConPgm
+end
+""" Discrete Conic problem Parsed from [SCP-Problem 2: Discrete OPC problem]"""
+#=  
+1. standard programming formula {z,c,A,b,G,h} for a specific conic solver
+
+4. configuration, parameters of Conic programmer; Intermediate results and data from programmer; History;
+5. all Sub-Problem methods: Constructer, Parser, Update
 =#
+mutable struct ScpSubPbm        # private data protection
+
+    #problem-specific parameters: timeNodes-grid """
+    tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
+    # (Shared) Updated reference Trajectory
+    xref::Vector{Vector{Float64}}
+    uref::Vector{Vector{Float64}}
+    pref::Vector{Vector{Float64}}
+
+    """ The standard conic problem from PTR's parsed discrete OPC"""
+    # The indices of linear conic program's z,c,A,b,G,h
+    idcsLnrConPgm::IdcsLnrConPgm
+    # The Matrix A, G
+    A::Matrix{Float64}
+    G::Matrix{Float64}
+    # Linear conic problem including Sparse Matrix
+    pgmLnrCon::LnrConPgm
+    
+    # The solution of subPbm
+    solusubpbm::ScpSubSolu
+
+    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::ScpSubPbm
+        #local variables
+        scpPrs = scpPbm.scpPrs
+        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
+        N = scpPrs.N
+
+        #problem-specific parameters: timeNodes-grid """
+        tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
+        # (Shared) Updated reference Trajectory
+        xref::Vector{Vector{Float64}}
+        uref::Vector{Vector{Float64}}
+        pref::Vector{Vector{Float64}}
+
+        # The indices of linear conic program's z,c,A,b,G,h
+        idcsLnrConPgm::IdcsLnrConPgm
+
+        dims_z, dims_b,
+
+
+        # The Matrix A, G
+        A = zeros(dims_b, dims_z)
+        G = zeros(dims_b, dims_z)
+        G::Matrix{Float64}
+
+        # Define linear objective function c    
+        I = zeros(Int64, dimsSpElem_M_P_A)
+        J = zeros(Int64, dimsSpElem_M_P_A)
+        V = zeros(Float64, dimsSpElem_M_P_A)
+        # Linear conic problem including Sparse Matrix
+        pgmLnrCon::LnrConPgm
+
+        subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
+        return subpbm
+    end
+end
+

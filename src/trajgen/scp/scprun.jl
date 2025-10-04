@@ -1,5 +1,5 @@
-""" Solve """
 
+""" Public methods called to SCPPbm and SubPbm"""
 function scp_solve!()
     
     while true
@@ -37,7 +37,7 @@ function subpbm_solve!()
     
 end
 
-""" After Construct, Initialize SCP from guessed trajectory"""
+# After Construct, Initialize SCP from guessed trajectory
 function scp_init!()::Nothing
     # Initialize SCP-problem2, Sub-problem3, and solver
     
@@ -49,6 +49,8 @@ function scp_init!()::Nothing
 end
 
 
+
+""" Private methods called from SCPPbm and SubPbm"""
 function scp_upd_scppbm!()
     #update reference trajectory from ScpSolu
     scppbm.xref = copy(ScpSolu.xd)
