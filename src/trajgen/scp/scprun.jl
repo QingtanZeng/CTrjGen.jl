@@ -38,13 +38,17 @@ function subpbm_solve!()
 end
 
 # After Construct, Initialize SCP from guessed trajectory
-function scp_init!()::Nothing
+function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjPbm::AbstTrjPbm)::Nothing
     # Initialize SCP-problem2, Sub-problem3, and solver
     
     # SCP-Problem2: transcription
     scp_upd_dyn!()
 
     # Sub-Problem3: Pre-parse
+    scp_init_vc!()          # initial and parse virtual control
+    scp_init_dynbox!()      # initial and parse box limits of dynamic system
+    scp_init_tr!()          # initial and parse trust region
+    scp_init_quacst!()      # initial and parse quadratic cost
 
 end
 

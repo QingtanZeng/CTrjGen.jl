@@ -32,7 +32,6 @@ struct IdcsDscrtzSys
     end
 end
 
-#=
 """
     Obtain the discrete-time model(transition matrix) for a continuous-time dynamics system
     Called at two places: 1) initialization, 2) after solving a sub-problem
@@ -41,7 +40,7 @@ end
 """
 function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}, 
                     pref::Vector{Float64},
-                    subpbm::ScpSubPbm, scppbm::SCPPbm, trjPbm::AbstTrjPbm)::Nothing
+                    subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # local variables
     nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
     N = trjPbm.scpPrs.N
@@ -139,7 +138,6 @@ function derivP(P::Vector{Float64}, idcs::IdcsDscrtzSys,
 
     return ddt_P
 end
-=#
 
 
 

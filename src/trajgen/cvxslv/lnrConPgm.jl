@@ -21,7 +21,7 @@ mutable struct LnrConPgm
     p::Int64;                 # Number of equality constraints, = length(b)
 
     b::Vector{Float64};     # RHS vector of equalities (can be NULL if no equalities are present)
-    A::SparseMatrixCSC{Float64, Int64};   # Sparse A matrix data array (column compressed storage) (can be all NULL if no equalities are present)  
+    A::SparseMatrixCSC{Float64, Int64};   # (Shared) Sparse A matrix data array (column compressed storage) (can be all NULL if no equalities are present)  
 
     # inequalities constraints {K>=0, SOC K2}, by h - Gx ∈ K
     m::Int64;     # Number of inequality constraints, = length(G rows, or h)
@@ -31,7 +31,51 @@ mutable struct LnrConPgm
     nex::Int64;      # Number of exponential cones, =0, not used in real-time
 
     h::Vector{Float64};     # Array of size m, RHS vector of cone constraint
-    G::SparseMatrixCSC{Float64, Int64};   # Sparse G matrix data array (column compressed storage)
+    G::SparseMatrixCSC{Float64, Int64};   # (Shared) Sparse G matrix data array (column compressed storage)
+
+    pwork::Ptr{ECOS.pwork}              # the interface structure of ECOS solver
+
+    function LnrConPgm( n::Int64,   # number of all variables, =column(A)
+                        p::Int64,   # number of all Ax=b constraints, =rows(A)
+                        A::SparseMatrixCSC{Float64, Int64},     # complete sparse matrix structure filled with -1
+
+                        m::Int64,   # number of all h-Gx<=0 constraintsa, =rows(G)
+                        l::Int64,   
+                        ncones::Int64,
+                        q::Vector{Int},
+                        G::SparseMatrixCSC{Float64, Int64},
+                        )::LnrConPgm
+
+        z = zeros(Float64, n)   # set vector z variables
+        c = zeros(Float64, n)   # set vector c cost function weights
+
+        b = zeros(Float64, p)   # set RHS vector of equalities
+
+        nex=0
+        h = zeros(Float64, m)
+
+        pwork = ECOS.ECOS_setup(
+                                n,
+                                m,
+                                p,
+                                l,
+                                ncones,
+                                q,
+                                nex,
+                                G.nzval,
+                                G.colptr .-1,
+                                G.rowval .-1,
+                                A.nzval,
+                                A.colptr .-1,
+                                A.rowval .-1,
+                                c,
+                                h,
+                                b,
+                            )
+
+        pgm = new(n, z, c, p, b, A, m, l, ncones, q, nex, h, G, pwork)
+        return pgm
+    end
 
 end
 
@@ -62,11 +106,10 @@ mutable struct HistLnrConPgm
     pgm_hist::Vector{SoluLnrConPgm}
 end
 
-#=
 function LnrConPgm_setup(
                         lnrConPgm::LnrConPgm,
                         )::Nothing
-    pwork = ECOS.ECOS_setup(
+    LnrConPgm.pwork = ECOS.ECOS_setup(
                 lnrConPgm.n,
                 lnrConPgm.m,
                 lnrConPgm.p,
@@ -85,4 +128,3 @@ function LnrConPgm_setup(
                 lnrConPgm.b, )
     return nothing
 end
-=#

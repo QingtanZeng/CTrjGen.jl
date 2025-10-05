@@ -1,9 +1,5 @@
 using LinearAlgebra, SparseArrays
 
-""" Enumeration definition"""
-@enum(CstrtType, ININ, DYN, TMNL, AFF, SOC, TRRG)
-@enum(VarsType, STATK, STATKP1, CTRLK, CTRLKP1, PARS, VCP, VCN, LSLK, CSLK, TRRGC)
-
 """ Sub-Data structure of SCP-Problem 2"""
 mutable struct ScpParas
     N::Int         # Number of temporal grid nodes
@@ -150,6 +146,11 @@ mutable struct SCPPbm           # private data protection
     dynDLTV::DLTVSys
     idcsDscrtzSys::IdcsDscrtzSys    # the index of system's 1-D P(tau)
     # 1.2 boundaries
+    A0::Matrix{Float64}     # A0*x1 = x_0
+    x_0::Vector{Float64}
+    AN::Matrix{Float64}     # AN*xn = x_n
+    x_f::Vector{Float64}
+
     # 1.3 trust-region constraints
     # 1.4 Affine equalities(Equality constraints: Zero cone K=0, Az=b)
     # 1.5 Affine inequalities(inequality constraints, h-Gz<=0)
@@ -174,7 +175,7 @@ mutable struct SCPPbm           # private data protection
     histScp::ScpHist
 
     # internal constructor for custimized data assignment
-    function SCPPbm(trjPbm::AbstTrjPbm,
+    function SCPPbm(trjpbm::AbstTrjPbm,
         scpPrs::ScpParas,
         tNodesE::Union{Vector{Float64},Nothing},
         xrefE::Union{Vector{Vector{Float64}},Nothing},
@@ -233,91 +234,129 @@ end
 
 """ Sub-Data structure of Sub-Problem 3 """
 struct IdcsLnrConPgm
-    # The indices of linear conic program's z,c,A,b,G,h
-    # dimenations of variables
-    dims_x::Int         # N*nx
-    dims_u::Int
-    dims_p::Int
-    dims_v::Int
-    dims_vc::Int
-    dims_sml::Int
-    dims_chiEta::Int
-    dims_chiEtap::Int
-    dims_chic::Int
-    lgh_z::Int
-    # indices of variables z,c
-    idx_x::UnitRange{Int}
-    idx_u::UnitRange{Int}
-    idx_p::UnitRange{Int}
-    idx_v::UnitRange{Int}
-    idx_vc::UnitRange{Int}
-    idx_sml::UnitRange{Int}
+    # The dimentations of linear conic program's z,c,A,b,G,h
+    dims_z::Int
+    dims_b::Int
+    num_K0::Int
+    Dims_K0::Vector{Int}
+    dims_K0::Int
+    num_K2::Int
+    Dims_K2::Vector{Int}
+    dims_K2::Int
+
+    # 1.0 dynamic system block v1={x;u;p;vc;} and A_dyn
+    # 1.1 dynamic system
+    dims_x::Int         # N*nx,
+    dims_u::Int         # N*nu
+    dims_p::Int         # N*np
+    num_dyn::Int        # (N-1)*nx
+    # 1.2 boundaries Conditions
+    num_ic::Int        # nic, =size(A0,1)
+    num_fc::Int        # nfc, =size(AN,1)
+    # 1.3 virtual control variables
+    dims_vcdyn::Int     # nx0+(N-1)*nx+nxf, 
+                        # usually no vc in initial and terminal boundaries
+    dims_svc1::Int      # slack variable, =dims_vcdyn, svc1_i >=|vc_i|_1 
+    dims_svc2::Int      # auxiliary variable, =dims_vcdyn, -s2=vc-scv<=0, s2>=0
+    dims_svc3::Int      # auxiliary variable, =dims_vcdyn,  s3=vc+scv>=0, s3>=0
+    # 1.4 z indices of dynamic system, boundaries Conditions and virtual control
+    idx_zx::Function
+    idx_zu::Function
+    idx_zp::UnitRange{Int}
+    idx_zvc::Function
+    idx_zvc1::Function
+    idx_zvc2::Function
+    idx_zvc3::Function
+    idx_bx::Function
+    idx_bic::UnitRange{Int}
+    idx_bfc::UnitRange{Int}
+    idx_bvcn::Function
+    idx_bvcp::Function
+
+    # 2. all linear (slack) variables block v2={v';s1;...;sml}, Affine equalities and A_Aff
+    # 2.1 BOX block for state, control parameters
+        dims_sx = 
+
+
+
+
     idx_chiEta::UnitRange{Int}
     idx_chiEtap::UnitRange{Int}
     idx_chic::UnitRange{Int}
 
-    # dimenations of constraints
-    dims_ININ::Int       # the dimenations of initial boundary
-    dims_DYN::Int        # the dimenations of dynamic constraints
-    dims_TMNL::Int       # the dimenations of terminal boundary
-    num_AFF::Int         # the number of affine equalities
-    dims_AFF::Int        # the dimenations of affine equalities
-    dims_XBOX::Int
-    dims_UBOX::Int
-    dims_PBOX::Int
-    dims_TRRG::Int
-    dims_SOC::Int
-    # indices of constraints
+
+
+    function IdcsLnrConPgm(scppbm::SCPPbm, trjpbm::AbstTrjPbm)::IdcsLnrConPgm
+        nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
+        N = scppbm.scpPrs.N
+       
+        # 1.0 dynamic system block v1={x;u;p;vc;} and A_dyn
+        # 1.1 dynamic system
+        dims_x = nx * N         #  state x
+        dims_u = nu * N         #  control u
+        dims_p = np             #  parameters p
+        num_dyn = nx * (N-1)    # (N-1) dynamic state equalities
+        # 1.2 boundaries Conditions
+        num_ic = size(scppbm.A0, 1)
+        num_fc = size(scppbm.AN, 1)
+        # 1.3 virtual control variables
+        dims_vcdyn = (N-1)*nx        # usually no vc in initial and terminal boundaries
+        dims_svc1 = dims_vcdyn
+        dims_svc2 = dims_vcdyn
+        dims_svc3 = dims_vcdyn
+        # 1.4 z indices of dynamic system, boundaries Conditions and virtual control
+        idx_zx = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*nx ) end
+        idx_zu = function(k::Int) 
+            return ( ((k-1)*nu+1) : k*nu ).+ dims_x  end
+        idx_zp = (1:dims_p).+ dims_x .+ dims_u
+        idx_zvc = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*nx ).+ dims_x .+ dims_u .+ dims_p end
+        idx_zsvc1 = (k::Int) -> idx_zvc(k).+dims_vcdyn
+        idx_zsvc2 = (k::Int) -> idx_zvc(k).+2*dims_vcdyn
+        idx_zsvc3 = (k::Int) -> idx_zvc(k).+3*dims_vcdyn
+
+        idx_bx = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*nx ).+ num_ic end
+        idx_bic = 1:num_ic
+        idx_bfc = (1:num_fc).+ num_ic.+ (N-1)*nx
+        idx_bvcn = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*nx ).+ dims_vcdyn.+num_ic.+num_fc end
+        idx_bvcp = (k::Int)-> idx_bvcn(k).+(N-1)*nx
+        end
+
+        # 2. all linear (slack) variables block v2={v';s1;...;sml}, Affine equalities and A_Aff
+        # 2.1 BOX block for state, control parameters
+        dims_sx = 
+
+
+        # 3. v3={s1;...;sml}, trust region, SOC and A_SOC
+        
+        # 3.1 trust region auxiliary block
+        dims_chiEta = trjPbm       # trust reion of dynamic
+        dims_chiEtap = trjPbm      # trust region of parameters
+
+        # 3.2 quadratic cost auxiliary  block
+
+        # 3.3 SOC auxiliary block
+        # dims_chic = trjPbm         # other soc slack variables
+
+        
+        # all dimenations of {c,z}, {A, b}, {G, h}
+        # Define variable z, c^T*z
+        dims_z= dims_x + dims_u + dims_p + dims_v 
+                + dims_c
+                dims_chiEta + dims_chiEtap + dims_chic    # z dimenations 
+        # Define variable b, A*z = b
+        num_b
+        # Define variable h, h-G*z ∈ K
+
+
+        idcs = new()
+        return idcs
+    end
 end
-function IdcsLnrConPgm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::IdcsLnrConPgm
-    nx, nu, np = trjPbm.nx, trjPbm.nu, trjPbm.np
-    N = scpPbm.scpPrs.N
 
-    # Define variables z
-    # dynamic system block v1={x;u;p;v+;v-}
-    dims_x = nx * N  #  state x
-    dims_u = nu * N  #  control u
-    dims_p = np  #  parameters p
-    dims_v = 2 * nx * (N + 1)  #  virtual control v={v+;v-}
-    # all linear (slack) variables block v2={v';s1;...;sml}
-    dims_vc =        # vitual control of nonconvex inequalities
-        dims_sml = trjPbm       # linear slack for K≤0 to K=0 
-    # all trust region and soc slack variables block v3={s1;...;sml}
-    dims_chiEta = trjPbm       # trust reion of dynamic
-    dims_chiEtap = trjPbm      # trust region of parameters
-    dims_chic = trjPbm         # other soc slack variables
-
-    lgh_z = dims_x + dims_u + dims_p
-    +2 * dims_v + dims_vc + dims_sml
-    dims_chiEta + dims_chiEtap + dims_chic    # z dimenations
-
-    # Define dynamic parts of Ax=b, block c1={X^P_A, X^b_P}
-    # 2 boundaries + (N-1) dynamic nodes constraints, idx0 + idxN + idx(1~(N-1))
-    # assume the initial and terminal constraints follows same equation with dynamics
-    n0 = nx
-    nf = nx
-    dimsRow_M_P_A = n0 + (N - 1) * nx + nf   # n0+nf+(N-1)nx
-    dimsCol_M_P_A = nx * N + nu * N + np
-    +2 * nx * (N + 1)   # same as length(v1)
-    size_M_P_A = (dimsRow_M_P_A, dimsCol_M_P_A)
-    dims_V_P_b = dimsRow_M_P_A
-
-    # create the Sparse A matrix: I, J, V
-    dimsSpElem_M_P_A = n0 * nx + n0 * np + 2 * n0     # idx=0, initial constraint
-    +(N - 1) * ((nx * nx + nx) + (2 * nx * nu) + (nx * np) + 2 * nx)
-    +nf * nx + nf * np + 2 * nf     # idx=N, terminal constraint
-
-    # Define linear equalities parts
-    size_Mb_C_A =
-        dims_Mb_C_b =
-        # Define the linear slack parts
-
-
-        # Define trust region parts
-        # Define other SOC slack parts 
-
-            return Idcs
-end
 mutable struct ScpPgmParas
 end
 mutable struct ScpSubSolu
@@ -351,38 +390,47 @@ mutable struct ScpSubPbm        # private data protection
     # The solution of subPbm
     solusubpbm::ScpSubSolu
 
-    function ScpSubPbm(scpPbm::SCPPbm, trjPbm::AbstTrjPbm)::ScpSubPbm
+    function ScpSubPbm(scppbm::SCPPbm, trjpbm::AbstTrjPbm)::ScpSubPbm
         #local variables
-        scpPrs = scpPbm.scpPrs
+        scpPrs = scppbm.scpPrs
         nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
         N = scpPrs.N
 
         #problem-specific parameters: timeNodes-grid """
-        tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
+        tNodes = scppbm.tNodes
         # (Shared) Updated reference Trajectory
-        xref::Vector{Vector{Float64}}
-        uref::Vector{Vector{Float64}}
-        pref::Vector{Float64}
+        xref=scppbm.xref
+        uref=scppbm.uref
+        pref=scppbm.pref
 
+        # The standard conic problem from PTR's parsed discrete OPC
         # The indices of linear conic program's z,c,A,b,G,h
-        idcsLnrConPgm::IdcsLnrConPgm
+        idcs = IdcsLnrConPgm()
 
-        dims_z, dims_b,
+        # The Matrix A, G and its sparse form
+        A = zeros(idcs.dims_b, idcs.dims_z)
+        Asp = spzeros(Float64, Int64, idcs.dims_b, idcs.dims_z)
+        G = zeros(idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
+        Gsp = spzeros(Float64, Int64, idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
 
-
-        # The Matrix A, G
-        A = zeros(dims_b, dims_z)
-        G = zeros(dims_b, dims_z)
-        G::Matrix{Float64}
-
-        # Define linear objective function c    
-        I = zeros(Int64, dimsSpElem_M_P_A)
-        J = zeros(Int64, dimsSpElem_M_P_A)
-        V = zeros(Float64, dimsSpElem_M_P_A)
         # Linear conic problem including Sparse Matrix
-        pgmLnrCon::LnrConPgm
+        # include other matrix z,c,b,h
+        pgmLnrCon = LnrConPgm(  idcs.dims_z, 
+                                idcs.dims_b,  
+                                Asp, 
+                                idcs.dims_K0+idcs.dims_K2,
+                                idcs.dims_K0,
+                                idc.num_K2,
+                                idcs.Dims_K2,
+                                Gsp
+                                )
 
-        subpbm = ScpSubPbm(scpPbm, trjPbm, IdcsLnrConPgm, A, G, pgmLnrCon)
+        # Solution of Sub-Problem
+        solusubpbm = ScpSubSolu(idcspgm)
+
+        subpbm = ScpSubPbm(tNodes, xref, uref, pref,
+                            idcsLnrConPgm, A, G, pgmLnrCon,
+                            solusubpbm)
         return subpbm
     end
 end
