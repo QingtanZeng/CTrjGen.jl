@@ -142,33 +142,46 @@ mutable struct SCPPbm           # private data protection
     # Scaling Matrix
     scpScl::SCPScaling
 
-    # 1.1 parsed dynamic system
+    # 1.1.1 parsed dynamic system
     dynDLTV::DLTVSys
     idcsDscrtzSys::IdcsDscrtzSys    # the index of system's 1-D P(tau)
-    # 1.2 boundaries
+    # 1.1.2 boundaries
     A0::Matrix{Float64}     # A0*x1 = x_0
     x_0::Vector{Float64}
     AN::Matrix{Float64}     # AN*xn = x_n
     x_f::Vector{Float64}
 
-    # 1.3 trust-region constraints
-    # 1.4 Affine equalities(Equality constraints: Zero cone K=0, Az=b)
-    # 1.5 Affine inequalities(inequality constraints, h-Gz<=0)
+    # 1.2.1 Box limits of states, controls, parameters
+    I_xl::Matrix{Float64}; xHighThd::Vector{Float64}; xLowThd::Vector{Float64}
+    I_ul::Matrix{Float64}; uHighThd::Vector{Float64}; uLowThd::Vector{Float64}
+    I_pl::Matrix{Float64}; pHighThd::Vector{Float64}; pLowThd::Vector{Float64}
+    # 1.2.2 Box limits of jerk: 3-order derivative from control(u), or equality h(x,u,p)
+        # jerk = |h_k+1 - h_k|/Δt ∈ [low, High]   |
+    # 1.2.3 Affine equalities from L1-norm cost
+    # 1.2.4 Affine equalities and inequalities with auxiliary variables
+
+    # 1.3.1 trust-region constraints
+    # 1.3.2 SOC constraints from L2-norm and L2-norm distance cost
+    # 1.3.3 SOC constraints
+
+    # 1.5 (Non-positive orthant constraints, h-Gz>=0)
     # 1.5 SOC constraints(SOC K2, by h - Gz ∈ K)
 
-    # 1.6 linear cost 
-    # 1.7 quadratic cost
-    # 1.8 virtual control   
+    # 2.1 linear and L1-norm cost 
+    I_xc::Vector{Float64}
+
+    # 2.2 L2-norm(quadratic) and L2-norm distance cost
+    # 2.3 virtual control   
     wtr::Vector{Float64}
     wtrp::Float64
-    # 1.9 trust region
+    # 2.4 trust region
     wvc::Float64
 
     """ Properties of standard structure """
     # Abstract index of PTR's parsed discrete OPC
-    #n::Int        # number of all linear equalities
-    #nl::Int        # number of all linear inequalities
-    #nsoc:Int       # number of all soc inequalities
+    #num_aff::Int           # number of all affine block
+    #num_k0::Int            # number of all K0 Non-positive orthant
+    #num_soc:Int            # number of all K2 SOC
 
     """ SCP Solution"""
     soluScp::ScpSolu
@@ -217,6 +230,8 @@ mutable struct SCPPbm           # private data protection
 
         # penalty weight of virtual control and trust region
 
+        # 2.1 linear and L1-norm cost 
+
         # SCP Solution
         soluScp = ScpSolu(scpPrs, trjPbm.dynmdl)
         histScp = ScpHist()
@@ -235,12 +250,23 @@ end
 """ Sub-Data structure of Sub-Problem 3 """
 struct IdcsLnrConPgm
     # The dimentations of linear conic program's z,c,A,b,G,h
+    num_z::Int
+    idcs_z::UnitRange{Int}
+    Dims_z::Vector{Int}
     dims_z::Int
+
+    num_b::Int
+    idcs_b::UnitRange{Int}
+    Dims_b::Vector{Int}
     dims_b::Int
+
     num_K0::Int
+    idcs_K0::UnitRange{Int}
     Dims_K0::Vector{Int}
     dims_K0::Int
+    
     num_K2::Int
+    idcs_K2::UnitRange{Int}
     Dims_K2::Vector{Int}
     dims_K2::Int
 
@@ -263,28 +289,81 @@ struct IdcsLnrConPgm
     idx_zx::Function
     idx_zu::Function
     idx_zp::UnitRange{Int}
+
     idx_zvc::Function
     idx_zvc1::Function
     idx_zvc2::Function
     idx_zvc3::Function
+
     idx_bx::Function
     idx_bic::UnitRange{Int}
     idx_bfc::UnitRange{Int}
-    idx_bvcn::Function
-    idx_bvcp::Function
+
+    idx_bvcn::UnitRange{Int}
+    idx_bvcp::UnitRange{Int}
 
     # 2. all linear (slack) variables block v2={v';s1;...;sml}, Affine equalities and A_Aff
     # 2.1 BOX block for state, control parameters
-        dims_sx = 
+    n_sx::Int
+    num_sx::Int         # rows(I_xl)*N, kron(I_N, I_xl) 
+    dims_sxmax::Int        # nx*n
+    dims_sxmin::Int        # nx*n
+    num_su::Int         # rows(I_ul)*N, kron(I_N, I_ul) 
+    dims_sumax::Int        # nu*n
+    dims_sumin::Int        # nu*n
+    num_sp::Int         # rows(I_pl)
+    dims_spmax::Int        # np
+    dims_spmin::Int        # np
+
+    idx_zsxmax::Function
+    idx_zsminx::Function
+    idx_zsumax::Function
+    idx_zsumin::Function
+    idx_zspmax::UnitRange{Int}
+    idx_zspmin::UnitRange{Int}
+    idx_bxmax::UnitRange{Int}
+    idx_bxmin::UnitRange{Int}
+    idx_bumax::UnitRange{Int}
+    idx_bumin::UnitRange{Int}
+    idx_bpmax::UnitRange{Int}
+    idx_bpmin::UnitRange{Int}
+        
+    # 2.3 Affine equalities from L1-norm cost
+    num_Ixc::Int        # rows(I_xc)*N
+    dims_sxc1::Int      # =num_Ixc
+    dims_sxc2::Int      # =num_Ixc
+    dims_sxc3::Int      # =num_Ixc
+
+    idx_zsxc1::Function
+    idx_zsxc2::Function
+    idx_zsxc3::Function
+    idx_bxcn::UnitRange{Int}
+    idx_bxcp::UnitRange{Int}
+
+    # 3. v3={s1;...;sml}, trust region, SOC and A_SOC
+    # 3.1 trust region auxiliary block
+    num_ptr::Int        # = np
+    dims_chiptr::Int       # = 1+2, [etap,chip1,chip2]
+    idx_zptr::UnitRange{Int}
+    idx_bptrn::UnitRange{Int}
+    idx_bptrp::UnitRange{Int}
+
+    num_xtr::Int        # IN *ₖ Inx
+    dim_chixtr::Int    # 1N *ₖ [eta_k, mu_k]
+    dims_chixtr::Int    # 1N *ₖ [eta_k, mu_k]
+    idx_zchixtr::Function
+    idx_bxtr::UnitRange{Int}
+
+    num_utr::Int        # IN *ₖ Inx
+    dim_chiutr::Int    # 1N *ₖ [eta_k, mu_k]
+    dims_chiutr::Int    # 1N *ₖ [eta_k, mu_k]
+    idx_zchiutr::Function
+    idx_butr::UnitRange{Int}
 
 
-
-
-    idx_chiEta::UnitRange{Int}
-    idx_chiEtap::UnitRange{Int}
-    idx_chic::UnitRange{Int}
-
-
+    # 3.2 quadratic cost auxiliary  block
+    # 3.3 SOC auxiliary block
+    # dims_chic = trjPbm         # other soc slack variables
 
     function IdcsLnrConPgm(scppbm::SCPPbm, trjpbm::AbstTrjPbm)::IdcsLnrConPgm
         nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
@@ -320,37 +399,168 @@ struct IdcsLnrConPgm
             return ( ((k-1)*nx+1) : k*nx ).+ num_ic end
         idx_bic = 1:num_ic
         idx_bfc = (1:num_fc).+ num_ic.+ (N-1)*nx
-        idx_bvcn = function(k::Int) 
-            return ( ((k-1)*nx+1) : k*nx ).+ dims_vcdyn.+num_ic.+num_fc end
-        idx_bvcp = (k::Int)-> idx_bvcn(k).+(N-1)*nx
+        idx_bvcn = (1:dims_vcdyn).+ num_ic.+ (N-1)*nx.+ num_fc 
+        idx_bvcp = (1:dims_vcdyn).+ num_ic.+ (N-1)*nx.+ num_fc .+ dims_vcdyn
         end
 
         # 2. all linear (slack) variables block v2={v';s1;...;sml}, Affine equalities and A_Aff
         # 2.1 BOX block for state, control parameters
-        dims_sx = 
+        n_sx = size(scppbm.I_xl, 1)
+        num_sx = n_sx*N
+        dims_sxmax = num_sx
+        dims_sxmin = num_sx
+        num_su = size(scppbm.I_ul, 1)*N
+        dims_sumax = num_su
+        dims_sumin = num_su
+        num_sp = size(scppbm.I_pl, 1)
+        dims_spmax = num_sp
+        dims_spmin = num_sp
+
+        idx_zsxmax = function(k::Int) 
+            return ( ((k-1)*n_sx+1) : k*n_sx ).+ idx_zsvc3(N-1)[end]  end  
+        idx_zsminx = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*nx ).+ idx_zsxmax(N)[end]  end  
+        idx_zsumax = function(k::Int) 
+            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsminx(N)[end]  end  
+        idx_zsumin = function(k::Int) 
+            return ( ((k-1)*nu+1) : k*nu ).+ idx_zumax(N)[end]  end  
+        idx_zspmax = (1:dims_spmax).+ idx_zumin(N)[end]
+        idx_zspmin = (1:dims_spmin).+ idx_zspmax[end]
+
+        idx_bxmax = (1:num_sx).+ idx_bvcp[end]
+        idx_bxmin = (1:num_sx).+ idx_bxmax[end]
+        idx_bumax = (1:num_su).+ idx_bxmin[end]
+        idx_bumin = (1:num_su).+ idx_bumax[end]
+        idx_bpmax = (1:num_sp).+ idx_bumin[end]
+        idx_bpmin = (1:num_sp).+ idx_bpmax[end]
+        
+        # 2.2 Box block for jert
+        # 2.3 Affine equalities from L1-norm cost
+        n_Idc = size(scppbm.I_xc, 1)
+        num_Ixc = n_Idc*N
+        dims_sxc1 = num_Ixc
+        dims_sxc2 = num_Ixc
+        dims_sxc3 = num_Ixc
+        
+        idx_zsxc1 = function(k::Int) 
+            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_bpmin[end]  end  
+        idx_zsxc2 = function(k::Int) 
+            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc1(N)[end]  end  
+        idx_zsxc3 = function(k::Int) 
+            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc2(N)[end]  end  
+        idx_bxcn = (1:num_Ixc).+ idx_bpmin[end]
+        idx_bxcp = (1:num_Ixc).+ idx_bxcn[end]
 
 
         # 3. v3={s1;...;sml}, trust region, SOC and A_SOC
-        
         # 3.1 trust region auxiliary block
-        dims_chiEta = trjPbm       # trust reion of dynamic
-        dims_chiEtap = trjPbm      # trust region of parameters
+        num_ptr = np
+        dims_chiptr = 1+2
+        idx_zptr = (1:dims_chiptr).+ idx_sxc3(N)[end]
+        idx_bptrn = (1:num_ptr).+ idx_bxcp[end]
+        idx_bptrp = (1:num_ptr).+ idx_bptrn[end]
+
+        num_xtr = nx*N
+        dim_chixtr = (1+nx)             #  1N *ₖ [eta_k, mu_k]
+        dims_chixtr = N*dims_chixtr
+        idx_zchixtr = function(k::Int) 
+            return ( ((k-1)*dim_chixtr+1) : k*dim_chixtr ).+ idx_zptr[end]  end  
+        idx_bxtr = (1:num_xtr).+ idx_bptrp[end]
+
+        num_utr = nu*N
+        dim_chiutr = (1+nu)             #  1N *ₖ [eta_k, mu_k]
+        dims_chiutr = N*dims_chiutr
+        idx_zchiutr = function(k::Int) 
+            return ( ((k-1)*dim_chiutr+1) : k*dim_chiutr ).+ idx_zchixtr(N)[end]  end  
+        idx_butr = (1:num_utr).+ idx_bxtr[end]
 
         # 3.2 quadratic cost auxiliary  block
-
         # 3.3 SOC auxiliary block
-        # dims_chic = trjPbm         # other soc slack variables
-
         
+
         # all dimenations of {c,z}, {A, b}, {G, h}
         # Define variable z, c^T*z
-        dims_z= dims_x + dims_u + dims_p + dims_v 
-                + dims_c
-                dims_chiEta + dims_chiEtap + dims_chic    # z dimenations 
-        # Define variable b, A*z = b
-        num_b
-        # Define variable h, h-G*z ∈ K
+        idcs_z = [  idx_zx(1)[1]:idx_zx(N)[end] ; 
+                    idx_zu(1)[1]:idx_zu(N)[end] ; 
+                    idx_zp;
+                    idx_zvc(1)[1]:idx_zvc(N-1)[end] ; 
 
+                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] ; 
+                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] ; 
+                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ; 
+
+                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ; 
+                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ;
+                    idx_zsumax(1)[1]:idx_zsumax(N)[end] ; 
+                    idx_zsumin(1)[1]:idx_zsumin(N)[end] ; 
+                    idx_zspmax(1)[1]:idx_zspmax[end] ; 
+                    idx_zspmin(1)[1]:idx_zspmin[end] ; 
+                    
+                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ; 
+                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ; 
+                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] ; 
+                    
+                    idxzptr;
+                    idx_zchixtr(1)[1]:idx_zchixtr(N)[end] ; 
+                    idx_zchiutr(1)[1]:idx_zchiutr(N)[end] ; 
+                 ]
+        num_z = length(idcs_z)
+        Dims_z = length.(idcs_z)
+        dims_z = sum(Dims_z)
+        # Define variable b, A*z = b
+        idcs_b = [  idx_bic ; 
+                    idx_bx(1)[1]:idx_bx(N-1)[end] ; 
+                    idx_bfc ; 
+
+                    idx_bvcn ; 
+                    idx_bvcp ; 
+
+                    idx_bxmax ; 
+                    idx_bxmin ; 
+                    idx_bumax ;
+                    idx_bumin ; 
+                    idx_bpmax ; 
+                    idx_bpmin ; 
+
+                    idx_bxcn ; 
+                    idx_bxcp ; 
+
+                    idx_bxtr;
+                    idx_butr;
+                ]
+        num_b = length(idcs_b)
+        Dims_b = length.(idcs_b)
+        dims_b = sum(Dims_b)
+        # Define variable K0, h-G*z ∈ K
+        idcs_K0 = [
+                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] ; 
+                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] ; 
+                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ; 
+
+                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ; 
+                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ;
+                    idx_zsumax(1)[1]:idx_zsumax(N)[end] ; 
+                    idx_zsumin(1)[1]:idx_zsumin(N)[end] ; 
+                    idx_zspmax(1)[1]:idx_zspmax[end] ; 
+                    idx_zspmin(1)[1]:idx_zspmin[end] ; 
+                    
+                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ; 
+                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ; 
+                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] ; 
+                    
+                    idxzptr;
+                    ]
+        num_K0 = length(idcs_K0)
+        Dims_K0 = length.(idcs_K0)
+        dims_K0 = sum(Dims_K0)
+        # Define variable K2, h-G*z ∈ K
+        idcs_K2 = [
+                    idx_zchixtr(k) for k in 1:N ;
+                    idx_zchiutr(k) for k in 1:N ;
+                  ]
+        num_K2 = length(idcs_K2)
+        Dims_K2 = length.(idcs_K2)
+        dims_K2 = sum(Dims_K2)
 
         idcs = new()
         return idcs

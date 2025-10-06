@@ -12,6 +12,7 @@ mutable struct DLTVSys
     BkP1n::Vector{Matrix{Float64}}
     En::Vector{Matrix{Float64}}
     Pn::Vector{Matrix{Float64}}
+    rn::Vector{Vector{Float64}}
 
     # Common info
     timeDiscrtz::Float64        # [s] time taken in system's discretization and update
@@ -38,6 +39,7 @@ mutable struct DLTVSys
         BkP1n = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
         En = [Matrix{Float64}(undef, nx, np) for _ in 1:N-1]
         Pn = [Matrix{Float64}(undef, nx, 1) for _ in 1:N-1] # 假设 Pn 是列向量
+        rn = [Vector{Float64}(undef, nx, 1) for _ in 1:N-1]
     
         # 初始化其他字段
         tNodes = Vector{Float64}()
@@ -47,7 +49,7 @@ mutable struct DLTVSys
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
-        return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, Pn, timeDiscrtz)
+        return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, Pn, rn, timeDiscrtz)
     end
 end
 

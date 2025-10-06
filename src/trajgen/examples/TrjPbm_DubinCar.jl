@@ -19,6 +19,8 @@ struct AutoTrjPbm_DubinCar <: AbstTrjPbm
     AN::Matrix{Float64}
     x_f::Vector{Float64}
 
+    I_xc::Vector{Float64}
+
     # Initial Guess Trajectory
     tf::Float64
     tNodes::Vector{Float64}     # nodes between [0,1]
@@ -71,11 +73,14 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     pref = Vector{Float64}()
 
     # Cost: keep trajectory straight line
-    #cost_x = θ²
-    Mc_X = [0.0 0 0; 0 0 0; 0 0 1]
+    # cost_x = θ²
+    # Mc_X = [0.0 0 0; 0 0 0; 0 0 1]
+    # cost_x = [0 0 1]*x
+    I_xc = [0.0 0 1]
 
     autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr,
                                     A0, x_0, AN, x_f,
+                                    I_xc,
                                     tf, tNodes, xref, uref, pref)
     return autotrjpbm
 end
