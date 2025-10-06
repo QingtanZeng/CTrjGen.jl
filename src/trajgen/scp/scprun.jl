@@ -4,6 +4,10 @@ function scp_solve!()
     
     while true
         
+        # online parsing from Problem2 to Problem3
+        scp_upd_dynbox()
+        scp_upd_tr()
+
         # solve ScpSubPbm
         subpbm_solve!()
         
@@ -45,10 +49,12 @@ function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjPbm::AbstTrjPbm)::Nothi
     scp_upd_dyn!()
 
     # Sub-Problem3: Pre-parse
+    scp_init_bc!()
     scp_init_vc!()          # initial and parse virtual control
     scp_init_dynbox!()      # initial and parse box limits of dynamic system
+    scp_init_l1cost!()      # initial and parse L1-norm cost
     scp_init_tr!()          # initial and parse trust region
-    scp_init_quacst!()      # initial and parse quadratic cost
+    #scp_init_quacst!()      # initial and parse quadratic cost
 
 end
 

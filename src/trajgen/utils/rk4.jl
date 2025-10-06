@@ -2,22 +2,20 @@
     4th Runge-Kutta Core Solver Step
 """
 function rk4_core_step(
-    Drvt::T.Func, 
-    x::RealVector, 
-    t::RealValue, 
-    tp::RealValue)::RealVector
+    ddt_F::Function, 
+    x::Vector{Float64}, 
+    t::Float64, 
+    tp::Float64)::Vector{Float64}
     # Calculate the time step
-   h = tp-t;
-   
+    h = tp-t
     # Calculate the intermediate slopes
-   s1=Drvt(t, x);
-   s2=Drvt(t + h/2, x + h/2 * s1);
-   s3=Drvt(t + h/2, x+ h/2* s2);
-   s4=Drvt(t + h, x + h*s3);
+    s1=ddt_F(t, x)
+    s2=ddt_F(t + h/2, x + h/2 * s1)
+    s3=ddt_F(t + h/2, x+ h/2* s2)
+    s4=ddt_F(t + h, x + h*s3)
 
-   xp = x + h/6 * (s1+ 2*(s2+s3) + s4);
-
-   return xp;    
+    xp = x + h/6 * (s1+ 2*(s2+s3) + s4)
+    return xp    
 end
 
 """
@@ -25,29 +23,29 @@ end
     Nomalized function and duraiton are best
 """
 function rk4(
-    Drvr::T.Func,
-    x0::RealVector,
-    tspan::RealVector;
+    ddt_F::Function,
+    x0::Vector{Float64},
+    tgrid::Vector{Float64};
     full::Bool = false,
-    actions::T.SpecialIntegrationActions = T.SpecialIntegrationActions(undef, 0),
-)::Unione{RealVector, RealMatrix}
-    X = rk4_generic;
-    return X;    
-end
+)::Union{Vector{Float64}, Vector{Vector{Float64}}}
 
-"""
-    RK4 main function
-"""
-function rk4_generic(
-
-
-)
+    nx = length(x0)
+    N = length(tgrid)
+    if full 
+        X = [zeros(Float64, nx) for _ in 1:N]
+        X[1] = copy(x0)
+    else
+        X = zeros(Float64, nx)
+        X = copy(x0)
+    end
 
     for k =2:N
-        if full
-            X[:,k] = rk4_core_step(Drvr, X[:,k-1], tspan[k-1], tspan[k]);
-            for act in actions
-                X[act[1], k] = act[2](X[act[1], k]);
-            end
+        if full==true
+            X[k] = copy( rk4_core_step(ddt_F, X[k-1], tgrid[k-1], tgrid[k]) )
+        else
+            X = copy( rk4_core_step(ddt_F, X, tgrid[k-1], tgrid[k]) )
+        end
+    end
 
+    return X;    
 end

@@ -47,6 +47,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
     Nsub = trjPbm.scpPrs.Nsub
     tNodes = scppbm.tNodes
     idcs = scppbm.idcsDscrtzSys
+    soluscp = scppbm.soluScp
     #Output:
     dynDLTV = scppbm.dynDLTV
     dynDLTV.tNodes = tNodes; dynDLTV.xref = xref; dynDLTV.uref = uref; dynDLTV.pref = pref;
@@ -54,30 +55,34 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
     # initialize P0
     P0 = zeros(idcs.lgh_P)
     P0[idcs.idx_A] = vec(Matrix{Float64}(I,nx,nx)) 
-
-    # dynamic feasibility detection
+    soluScp.flgFsbDyn = true
 
 
     # discretization loop
-    for node = 1:N
+    for node = 1:N-1
         # initialize P0 's x state as xref_k
         P0[idcs.idx_x] = xref[node]
 
         # more clear packaging of d/dt*P(tau) = func(tau,x(tau)) used in rk4
         ddt_P = (tau, P) -> derivP_node(tau, P, idcs, 
                                         tNodes[node], tNodes[node+1], 
-                                        uref[node], uref[node+1], pref[node], 
+                                        uref[node], uref[node+1], pref, 
                                         trjPbm.dynmdl)
         tSubGrid = collect(range(tNodes[node], tNodes[node+1], length=Nsub))
-        P1 = rk4_generic(ddt_P, P0, tSubGrid)
+        P = rk4(ddt_P, P0, tSubGrid)
+        Pf = P[end]
 
         # update DLTV and pgm.A
-        DLTVsys_upd()
-
+        DLTVsys_upd(node, Pf, idcs, dynDLTV)
 
         # Calculate defect and feasibility
-
-
+        soluscp.dfctDyn[node] = copy(xref[node+1] - dynDLTV.xn[node])
+        if norm(soluscp.dfctDyn[node]) > scppbm.scpPrs.feas_tol
+            soluscp.flgFsbDynVec[node] = false
+            soluScp.flgFsbDyn = false
+        else
+            soluscp.flgFsbDynVec[node] = true
+        end
     end
 
     return nothing

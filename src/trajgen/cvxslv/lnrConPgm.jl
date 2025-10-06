@@ -54,24 +54,7 @@ mutable struct LnrConPgm
         nex=0
         h = zeros(Float64, m)
 
-        pwork = ECOS.ECOS_setup(
-                                n,
-                                m,
-                                p,
-                                l,
-                                ncones,
-                                q,
-                                nex,
-                                G.nzval,
-                                G.colptr .-1,
-                                G.rowval .-1,
-                                A.nzval,
-                                A.colptr .-1,
-                                A.rowval .-1,
-                                c,
-                                h,
-                                b,
-                            )
+        pwork = Ptr{ECOS.pwork}()
 
         pgm = new(n, z, c, p, b, A, m, l, ncones, q, nex, h, G, pwork)
         return pgm

@@ -68,7 +68,7 @@ mutable struct ScpSolu          # private data protection
 
     # Risk/Feasibility assessment
     # dynamics feasibility
-    dfctDyn::Vector{Float64}        # N-1 nodes
+    dfctDyn::Vector{Vector{Float64}}        # N-1 nodes * nx
     flgFsbDynVec::Vector{Bool}      # N-1 nodes
     flgFsbDyn::Bool                 # overall flag
 
@@ -97,8 +97,8 @@ mutable struct ScpSolu          # private data protection
         cost = Inf
 
         # Risk/Feasibility assessment
-        dfctDyn = zeros(Float64, N - 1)
-        flgFsbDynVec = zeros(Bool, N - 1)
+        dfctDyn = [zeros(Float64, nx) for _ in 1:N-1 ] 
+        flgFsbDynVec = ones(Bool, N - 1)
         flgFsbDyn = false
 
         # Discrete-time Trajectory :x, u, p
@@ -610,7 +610,6 @@ end
 mutable struct ScpPgmParas
 end
 mutable struct ScpSubSolu
-    solupgm::SoluLnrConPgm
 end
 """ Discrete Conic problem Parsed from [SCP-Problem 2: Discrete OPC problem]"""
 #=  
@@ -633,7 +632,9 @@ mutable struct ScpSubPbm        # private data protection
     idcsLnrConPgm::IdcsLnrConPgm
     # The Matrix A, G
     A::Matrix{Float64}
+    Asp::SparseMatrixCSC{Float64, Int64}
     G::Matrix{Float64}
+    Gsp::SparseMatrixCSC{Float64, Int64}
     # Linear conic problem including Sparse Matrix
     pgmLnrCon::LnrConPgm
     
@@ -655,7 +656,7 @@ mutable struct ScpSubPbm        # private data protection
 
         # The standard conic problem from PTR's parsed discrete OPC
         # The indices of linear conic program's z,c,A,b,G,h
-        idcs = IdcsLnrConPgm()
+        idcs = IdcsLnrConPgm(scppbm, trjpbm)
 
         # The Matrix A, G and its sparse form
         A = zeros(idcs.dims_b, idcs.dims_z)
@@ -670,16 +671,18 @@ mutable struct ScpSubPbm        # private data protection
                                 Asp, 
                                 idcs.dims_K0+idcs.dims_K2,
                                 idcs.dims_K0,
-                                idc.num_K2,
+                                idcs.num_K2,
                                 idcs.Dims_K2,
                                 Gsp
                                 )
 
         # Solution of Sub-Problem
-        solusubpbm = ScpSubSolu(idcspgm)
+        solusubpbm = ScpSubSolu()
 
-        subpbm = ScpSubPbm(tNodes, xref, uref, pref,
-                            idcsLnrConPgm, A, G, pgmLnrCon,
+        subpbm = new(tNodes, xref, uref, pref,
+                            idcs,
+                            A, Asp, G, Gsp, 
+                            pgmLnrCon,
                             solusubpbm)
         return subpbm
     end
