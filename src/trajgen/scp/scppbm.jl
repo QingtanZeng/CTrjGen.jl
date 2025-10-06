@@ -251,22 +251,22 @@ end
 struct IdcsLnrConPgm
     # The dimentations of linear conic program's z,c,A,b,G,h
     num_z::Int
-    idcs_z::UnitRange{Int}
+    idcs_z::Vector{UnitRange{Int}}
     Dims_z::Vector{Int}
     dims_z::Int
 
     num_b::Int
-    idcs_b::UnitRange{Int}
+    idcs_b::Vector{UnitRange{Int}}
     Dims_b::Vector{Int}
     dims_b::Int
 
     num_K0::Int
-    idcs_K0::UnitRange{Int}
+    idcs_K0::Vector{UnitRange{Int}}
     Dims_K0::Vector{Int}
     dims_K0::Int
     
     num_K2::Int
-    idcs_K2::UnitRange{Int}
+    idcs_K2::Vector{UnitRange{Int}}
     Dims_K2::Vector{Int}
     dims_K2::Int
 
@@ -291,9 +291,9 @@ struct IdcsLnrConPgm
     idx_zp::UnitRange{Int}
 
     idx_zvc::Function
-    idx_zvc1::Function
-    idx_zvc2::Function
-    idx_zvc3::Function
+    idx_zsvc1::Function
+    idx_zsvc2::Function
+    idx_zsvc3::Function
 
     idx_bx::Function
     idx_bic::UnitRange{Int}
@@ -391,9 +391,9 @@ struct IdcsLnrConPgm
         idx_zp = (1:dims_p).+ dims_x .+ dims_u
         idx_zvc = function(k::Int) 
             return ( ((k-1)*nx+1) : k*nx ).+ dims_x .+ dims_u .+ dims_p end
-        idx_zsvc1 = (k::Int) -> idx_zvc(k).+dims_vcdyn
-        idx_zsvc2 = (k::Int) -> idx_zvc(k).+2*dims_vcdyn
-        idx_zsvc3 = (k::Int) -> idx_zvc(k).+3*dims_vcdyn
+        idx_zsvc1 = (k::Int) -> (idx_zvc(k).+dims_vcdyn)
+        idx_zsvc2 = (k::Int) -> (idx_zvc(k).+2*dims_vcdyn)
+        idx_zsvc3 = (k::Int) -> (idx_zvc(k).+3*dims_vcdyn)
 
         idx_bx = function(k::Int) 
             return ( ((k-1)*nx+1) : k*nx ).+ num_ic end
@@ -401,7 +401,6 @@ struct IdcsLnrConPgm
         idx_bfc = (1:num_fc).+ num_ic.+ (N-1)*nx
         idx_bvcn = (1:dims_vcdyn).+ num_ic.+ (N-1)*nx.+ num_fc 
         idx_bvcp = (1:dims_vcdyn).+ num_ic.+ (N-1)*nx.+ num_fc .+ dims_vcdyn
-        end
 
         # 2. all linear (slack) variables block v2={v';s1;...;sml}, Affine equalities and A_Aff
         # 2.1 BOX block for state, control parameters
@@ -423,8 +422,8 @@ struct IdcsLnrConPgm
         idx_zsumax = function(k::Int) 
             return ( ((k-1)*nu+1) : k*nu ).+ idx_zsminx(N)[end]  end  
         idx_zsumin = function(k::Int) 
-            return ( ((k-1)*nu+1) : k*nu ).+ idx_zumax(N)[end]  end  
-        idx_zspmax = (1:dims_spmax).+ idx_zumin(N)[end]
+            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsumax(N)[end]  end  
+        idx_zspmax = (1:dims_spmax).+ idx_zsumin(N)[end]
         idx_zspmin = (1:dims_spmin).+ idx_zspmax[end]
 
         idx_bxmax = (1:num_sx).+ idx_bvcp[end]
@@ -480,89 +479,130 @@ struct IdcsLnrConPgm
 
         # all dimenations of {c,z}, {A, b}, {G, h}
         # Define variable z, c^T*z
-        idcs_z = [  idx_zx(1)[1]:idx_zx(N)[end] ; 
-                    idx_zu(1)[1]:idx_zu(N)[end] ; 
-                    idx_zp;
-                    idx_zvc(1)[1]:idx_zvc(N-1)[end] ; 
+        idcs_z = [  idx_zx(1)[1]:idx_zx(N)[end] ,
+                    idx_zu(1)[1]:idx_zu(N)[end] , 
+                    idx_zp,
+                    idx_zvc(1)[1]:idx_zvc(N-1)[end] , 
 
-                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] ; 
-                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] ; 
-                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ; 
+                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] , 
+                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] , 
+                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] , 
 
-                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ; 
-                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ;
-                    idx_zsumax(1)[1]:idx_zsumax(N)[end] ; 
-                    idx_zsumin(1)[1]:idx_zsumin(N)[end] ; 
-                    idx_zspmax(1)[1]:idx_zspmax[end] ; 
-                    idx_zspmin(1)[1]:idx_zspmin[end] ; 
+                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] , 
+                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,
+                    idx_zsumax(1)[1]:idx_zsumax(N)[end] , 
+                    idx_zsumin(1)[1]:idx_zsumin(N)[end] , 
+                    idx_zspmax(1)[1]:idx_zspmax[end] , 
+                    idx_zspmin(1)[1]:idx_zspmin[end] , 
                     
-                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ; 
-                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ; 
-                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] ; 
+                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] , 
+                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] , 
+                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] , 
                     
-                    idxzptr;
-                    idx_zchixtr(1)[1]:idx_zchixtr(N)[end] ; 
-                    idx_zchiutr(1)[1]:idx_zchiutr(N)[end] ; 
+                    idx_zptr,
+                    idx_zchixtr(1)[1]:idx_zchixtr(N)[end] , 
+                    idx_zchiutr(1)[1]:idx_zchiutr(N)[end] , 
                  ]
         num_z = length(idcs_z)
         Dims_z = length.(idcs_z)
         dims_z = sum(Dims_z)
         # Define variable b, A*z = b
-        idcs_b = [  idx_bic ; 
-                    idx_bx(1)[1]:idx_bx(N-1)[end] ; 
-                    idx_bfc ; 
+        idcs_b = [  idx_bic , 
+                    idx_bx(1)[1]:idx_bx(N-1)[end] , 
+                    idx_bfc , 
 
-                    idx_bvcn ; 
-                    idx_bvcp ; 
+                    idx_bvcn , 
+                    idx_bvcp , 
 
-                    idx_bxmax ; 
-                    idx_bxmin ; 
-                    idx_bumax ;
-                    idx_bumin ; 
-                    idx_bpmax ; 
-                    idx_bpmin ; 
+                    idx_bxmax , 
+                    idx_bxmin , 
+                    idx_bumax ,
+                    idx_bumin , 
+                    idx_bpmax , 
+                    idx_bpmin , 
 
-                    idx_bxcn ; 
-                    idx_bxcp ; 
+                    idx_bxcn , 
+                    idx_bxcp , 
 
-                    idx_bxtr;
-                    idx_butr;
+                    idx_bxtr,
+                    idx_butr,
                 ]
         num_b = length(idcs_b)
         Dims_b = length.(idcs_b)
         dims_b = sum(Dims_b)
         # Define variable K0, h-G*z ∈ K
         idcs_K0 = [
-                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] ; 
-                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] ; 
-                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ; 
+                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] , 
+                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] , 
+                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] , 
 
-                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ; 
-                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ;
-                    idx_zsumax(1)[1]:idx_zsumax(N)[end] ; 
-                    idx_zsumin(1)[1]:idx_zsumin(N)[end] ; 
-                    idx_zspmax(1)[1]:idx_zspmax[end] ; 
-                    idx_zspmin(1)[1]:idx_zspmin[end] ; 
+                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] , 
+                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,
+                    idx_zsumax(1)[1]:idx_zsumax(N)[end] , 
+                    idx_zsumin(1)[1]:idx_zsumin(N)[end] , 
+                    idx_zspmax(1)[1]:idx_zspmax[end] , 
+                    idx_zspmin(1)[1]:idx_zspmin[end] , 
                     
-                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ; 
-                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ; 
-                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] ; 
+                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] , 
+                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] , 
+                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] , 
                     
-                    idxzptr;
+                    idx_zptr,
                     ]
         num_K0 = length(idcs_K0)
         Dims_K0 = length.(idcs_K0)
         dims_K0 = sum(Dims_K0)
         # Define variable K2, h-G*z ∈ K
         idcs_K2 = [
-                    idx_zchixtr(k) for k in 1:N ;
-                    idx_zchiutr(k) for k in 1:N ;
-                  ]
+                    (idx_zchixtr(k) for k in 1:N)...,
+                    (idx_zchiutr(k) for k in 1:N)...
+                    ]
         num_K2 = length(idcs_K2)
         Dims_K2 = length.(idcs_K2)
         dims_K2 = sum(Dims_K2)
 
-        idcs = new()
+        idcs = new(
+            num_z, idcs_z, Dims_z, dims_z,
+            num_b, idcs_b, Dims_b, dims_b,
+            num_K0, idcs_K0, Dims_K0, dims_K0,
+            num_K2, idcs_K2, Dims_K2, dims_K2,
+
+            dims_x, dims_u, dims_p, num_dyn,
+            num_ic, num_fc,
+            dims_vcdyn, dims_svc1, dims_svc2, dims_svc3,
+
+            idx_zx, idx_zu, idx_zp,
+            idx_zvc, idx_zsvc1, idx_zsvc2, idx_zsvc3,
+            idx_bx, idx_bic, idx_bfc,
+            idx_bvcn, idx_bvcp,
+
+            n_sx, num_sx, dims_sxmax, dims_sxmin,
+            num_su, dims_sumax, dims_sumin,
+            num_sp, dims_spmax, dims_spmin,
+
+            idx_zsxmax, idx_zsminx,
+            idx_zsumax, idx_zsumin,
+            idx_zspmax, idx_zspmin,
+            idx_bxmax, idx_bxmin,
+            idx_bumax, idx_bumin,
+            idx_bpmax, idx_bpmin,
+
+            num_Ixc, dims_sxc1, dims_sxc2, dims_sxc3,
+            idx_zsxc1, idx_zsxc2, idx_zsxc3,
+            idx_bxcn, idx_bxcp,
+
+            num_ptr, dims_chiptr,
+            idx_zptr,
+            idx_bptrn, idx_bptrp,
+
+            num_xtr, dim_chixtr, dims_chixtr,
+            idx_zchixtr,
+            idx_bxtr,
+
+            num_utr, dim_chiutr, dims_chiutr,
+            idx_zchiutr,
+            idx_butr
+        )
         return idcs
     end
 end
