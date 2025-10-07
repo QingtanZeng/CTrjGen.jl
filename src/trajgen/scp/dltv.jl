@@ -6,6 +6,9 @@ mutable struct DLTVSys
     uref::Vector{Vector{Float64}}
     pref::Vector{Float64}
 
+    # -(xprop_k+1 − Fref(k))= Ak*xk- Inx*xk+1 + Bk−*uk + Bk+*uk+1 + Ek*p
+    # -rn = ...
+
     # Parsed discrete-time state-equation of dynamic system
     xn::Vector{Vector{Float64}}         #x_2 to x_N from xref_k + rk4
     An::Vector{Matrix{Float64}}
@@ -71,7 +74,7 @@ function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys,
     dltv.Bkn[node] = copy(B_kN)
     dltv.BkP1n[node] = copy(B_kP)
     dltv.En[node] = copy(E_k)
-    dltv.rn[node] = copy(x_kP1 -(A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref_k))
+    dltv.rn[node] = copy(x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref_k))
 
     return nothing
 end

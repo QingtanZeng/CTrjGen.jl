@@ -42,12 +42,12 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
                     pref::Vector{Float64},
                     subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # local variables
-    nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
-    N = trjPbm.scpPrs.N
-    Nsub = trjPbm.scpPrs.Nsub
+    nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
+    N = trjpbm.scpPrs.N
+    Nsub = trjpbm.scpPrs.Nsub
     tNodes = scppbm.tNodes
     idcs = scppbm.idcsDscrtzSys
-    soluscp = scppbm.soluScp
+    soluscp = scppbm.soluscp
     #Output:
     dynDLTV = scppbm.dynDLTV
     dynDLTV.tNodes = tNodes; dynDLTV.xref = xref; dynDLTV.uref = uref; dynDLTV.pref = pref;
@@ -55,7 +55,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
     # initialize P0
     P0 = zeros(idcs.lgh_P)
     P0[idcs.idx_A] = vec(Matrix{Float64}(I,nx,nx)) 
-    soluScp.flgFsbDyn = true
+    soluscp.flgFsbDyn = true
 
 
     # discretization loop
@@ -67,7 +67,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
         ddt_P = (tau, P) -> derivP_node(tau, P, idcs, 
                                         tNodes[node], tNodes[node+1], 
                                         uref[node], uref[node+1], pref, 
-                                        trjPbm.dynmdl)
+                                        trjpbm.dynmdl)
         tSubGrid = collect(range(tNodes[node], tNodes[node+1], length=Nsub))
         P = rk4(ddt_P, P0, tSubGrid)
         Pf = P[end]
@@ -79,7 +79,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
         soluscp.dfctDyn[node] = copy(xref[node+1] - dynDLTV.xn[node])
         if norm(soluscp.dfctDyn[node]) > scppbm.scpPrs.feas_tol
             soluscp.flgFsbDynVec[node] = false
-            soluScp.flgFsbDyn = false
+            soluscp.flgFsbDyn = false
         else
             soluscp.flgFsbDynVec[node] = true
         end

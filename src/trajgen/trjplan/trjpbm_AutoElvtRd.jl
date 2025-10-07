@@ -50,7 +50,7 @@ function TrjPbm_Ovrtk_Main(
     #Other default parameters
 
     #Other data-structure
-    soluScp = ScpSolu()
+    soluscp = ScpSolu()
     histScp = ScpHist()
 
     """ 1.2 OPC_SCP Pre-Hand-Parser""" 

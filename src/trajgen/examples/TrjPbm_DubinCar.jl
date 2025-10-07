@@ -2,8 +2,10 @@ include("../mdl/auto.jl")
 include("../trjplan/trjpbm.jl")
 include("../cvxslv/lnrConPgm.jl")
 include("../scp/dltv.jl")
-include("../scp/discrtz.jl")
 include("../scp/scppbm.jl")
+include("../scp/discrtz.jl")
+include("../scp/parser.jl")
+include("../scp/scprun.jl")
 
 using LinearAlgebra, SparseArrays
 
@@ -75,7 +77,8 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     # Cost: keep trajectory straight line
     # cost_x = θ²
     # Mc_X = [0.0 0 0; 0 0 0; 0 0 1]
-    # cost_x = [0 0 1]*x
+    # cost_x = wxc*[0 0 1]*x
+    wxc = 100.0
     I_xc = [0.0 0 1]
 
     autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr,
@@ -137,10 +140,10 @@ end
 
     trjdb.pref = [tf,]
 
-    scp_init!()
+    scp_init!(subpbm, scppbm, trjdb))
 
 # 3.0 iteritive solving loop
-    scp_solve!()
+    scp_solve!(subpbm, scppbm, trjdb)
 
 
 # 4.0 Record, assessment, Plot

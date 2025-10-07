@@ -57,9 +57,10 @@ end
 mutable struct ScpSolu          # private data protection
     """ iteritive buffer each sub-problem results """
     # Properties of SCP
+    codescpexit::Int8       # 0 NaN, 1 fsb&opt, 2 fsb, 3 fail
     flgFsb::Bool
     flgOpt::Bool
-    itrScp::Int
+    itrscp::Int
     itrAllCvx::Int
     timescp::Float64   # [s] time spend
 
@@ -87,9 +88,10 @@ mutable struct ScpSolu          # private data protection
         nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
 
         # initial Properties
+        codescpexit = 0
         flgFsb = false
         flgOpt = false
-        itrScp = 0
+        itrscp = 0
         itrAllCvx = 0
         timescp = 0.0
 
@@ -107,7 +109,7 @@ mutable struct ScpSolu          # private data protection
         ud = [zeros(Float64, nu) for _ in 1:N]
         p = [zeros(Float64, np) for _ in 1:N]
 
-        scpsolu = new(flgFsb, flgOpt, itrScp, itrAllCvx, timescp,
+        scpsolu = new(codescpexit, flgFsb, flgOpt, itrscp, itrAllCvx, timescp,
             cost,
             dfctDyn, flgFsbDynVec, flgFsbDyn,
             tNodes, xd, ud, p)
@@ -168,11 +170,12 @@ mutable struct SCPPbm           # private data protection
     # 1.5 SOC constraints(SOC K2, by h - Gz ∈ K)
 
     # 2.1 linear and L1-norm cost 
+    wxc::Float64
     I_xc::Vector{Float64}
 
     # 2.2 L2-norm(quadratic) and L2-norm distance cost
     # 2.3 virtual control   
-    wtr::Vector{Float64}
+    wtr::Float64
     wtrp::Float64
     # 2.4 trust region
     wvc::Float64
@@ -184,8 +187,8 @@ mutable struct SCPPbm           # private data protection
     #num_soc:Int            # number of all K2 SOC
 
     """ SCP Solution"""
-    soluScp::ScpSolu
-    histScp::ScpHist
+    soluscp::ScpSolu
+    histscp::ScpHist
 
     # internal constructor for custimized data assignment
     function SCPPbm(trjpbm::AbstTrjPbm,
@@ -195,11 +198,11 @@ mutable struct SCPPbm           # private data protection
         urefE::Union{Vector{Vector{Float64}},Nothing},
         prefE::Union{Vector{Vector{Float64}},Nothing},
         scpScl::SCPScaling,
-        wtr::Vector{Float64},
+        wtr::Float64,
         wtrp::Float64,
         wvc::Float64,
     )::SCPPbm
-        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
+        nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
         N = scpPrs.N
 
         # problem-specific parameters: timeNodes-grid
@@ -219,22 +222,22 @@ mutable struct SCPPbm           # private data protection
             uref = deepcopy(urefE)
         end
 
-        pref = [zeros(Float64, np) for _ in 1:N]
+        pref = zeros(Float64, np) 
         if !isnothing(prefE)
-            pref = deepcopy(prefE)
+            pref = copy(prefE)
         end
 
         # standar structure for PTR's parsed discrete OPC
         dynDLTV = DLTVSys(nx, nu, np, N)
-        idcsDscrtzSys = IdcsDscrtzSys(trjPbm.dynmdl)
+        idcsDscrtzSys = IdcsDscrtzSys(trjpbm.dynmdl)
 
         # penalty weight of virtual control and trust region
 
         # 2.1 linear and L1-norm cost 
 
         # SCP Solution
-        soluScp = ScpSolu(scpPrs, trjPbm.dynmdl)
-        histScp = ScpHist()
+        soluscp = ScpSolu(scpPrs, trjpbm.dynmdl)
+        histscp = ScpHist()
 
         # The constructor `new` must be called with all fields
         scppbm = new(scpPrs, tNodes,
@@ -242,7 +245,7 @@ mutable struct SCPPbm           # private data protection
             scpScl,
             dynDLTV, idcsDscrtzSys,
             wtr, wtrp, wvc,
-            soluScp, histScp)
+            soluscp, histscp)
         return scppbm
     end
 end
@@ -329,10 +332,10 @@ struct IdcsLnrConPgm
     idx_bpmin::UnitRange{Int}
         
     # 2.3 Affine equalities from L1-norm cost
-    num_Ixc::Int        # rows(I_xc)*N
-    dims_sxc1::Int      # =num_Ixc
-    dims_sxc2::Int      # =num_Ixc
-    dims_sxc3::Int      # =num_Ixc
+    num_xc::Int        # rows(I_xc)*N
+    dims_sxc1::Int      # =num_xc
+    dims_sxc2::Int      # =num_xc
+    dims_sxc3::Int      # =num_xc
 
     idx_zsxc1::Function
     idx_zsxc2::Function
@@ -363,7 +366,7 @@ struct IdcsLnrConPgm
 
     # 3.2 quadratic cost auxiliary  block
     # 3.3 SOC auxiliary block
-    # dims_chic = trjPbm         # other soc slack variables
+    # dims_chic = trjpbm         # other soc slack variables
 
     function IdcsLnrConPgm(scppbm::SCPPbm, trjpbm::AbstTrjPbm)::IdcsLnrConPgm
         nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
@@ -436,10 +439,10 @@ struct IdcsLnrConPgm
         # 2.2 Box block for jert
         # 2.3 Affine equalities from L1-norm cost
         n_Idc = size(scppbm.I_xc, 1)
-        num_Ixc = n_Idc*N
-        dims_sxc1 = num_Ixc
-        dims_sxc2 = num_Ixc
-        dims_sxc3 = num_Ixc
+        num_xc = n_Idc*N
+        dims_sxc1 = num_xc
+        dims_sxc2 = num_xc
+        dims_sxc3 = num_xc
         
         idx_zsxc1 = function(k::Int) 
             return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_bpmin[end]  end  
@@ -447,8 +450,8 @@ struct IdcsLnrConPgm
             return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc1(N)[end]  end  
         idx_zsxc3 = function(k::Int) 
             return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc2(N)[end]  end  
-        idx_bxcn = (1:num_Ixc).+ idx_bpmin[end]
-        idx_bxcp = (1:num_Ixc).+ idx_bxcn[end]
+        idx_bxcn = (1:num_xc).+ idx_bpmin[end]
+        idx_bxcp = (1:num_xc).+ idx_bxcn[end]
 
 
         # 3. v3={s1;...;sml}, trust region, SOC and A_SOC
@@ -479,29 +482,29 @@ struct IdcsLnrConPgm
 
         # all dimenations of {c,z}, {A, b}, {G, h}
         # Define variable z, c^T*z
-        idcs_z = [  idx_zx(1)[1]:idx_zx(N)[end] ,
-                    idx_zu(1)[1]:idx_zu(N)[end] , 
-                    idx_zp,
-                    idx_zvc(1)[1]:idx_zvc(N-1)[end] , 
+        idcs_z = [  idx_zx(1)[1]:idx_zx(N)[end] ,           # 1. 状态变量 x (所有节点)
+                    idx_zu(1)[1]:idx_zu(N)[end] ,           # 2. 控制变量 u (所有节点)
+                    idx_zp,                                 # 3. 参数变量 p
+                    idx_zvc(1)[1]:idx_zvc(N-1)[end] ,       # 4. 动力学虚拟控制 vc
 
-                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] , 
-                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] , 
-                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] , 
+                    idx_zsvc1(1)[1]:idx_zsvc1(N-1)[end] ,   # 5. vc 的 松弛变量 s_vc1 (s_vc1 >= |vc|)
+                    idx_zsvc2(1)[1]:idx_zsvc2(N-1)[end] ,   # 6. vc 的 l1-norm 辅助变量 s_vc2 (vc - s_vc1 + s_vc2 = 0)
+                    idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ,   # 7. vc 的 l1-norm 辅助变量 s_vc3 (-vc - s_vc1 + s_vc3 = 0)
 
-                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] , 
-                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,
-                    idx_zsumax(1)[1]:idx_zsumax(N)[end] , 
-                    idx_zsumin(1)[1]:idx_zsumin(N)[end] , 
-                    idx_zspmax(1)[1]:idx_zspmax[end] , 
-                    idx_zspmin(1)[1]:idx_zspmin[end] , 
+                    idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ,  # 8. 状态 x 上边界松弛变量 s_xmax
+                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,   # 9. 状态 x 下边界松弛变量 s_xmin
+                    idx_zsumax(1)[1]:idx_zsumax(N)[end] ,   # 10. 控制 u 上边界松弛变量 s_umax
+                    idx_zsumin(1)[1]:idx_zsumin(N)[end] ,   # 11. 控制 u 下边界松弛变量 s_umin
+                    idx_zspmax(1)[1]:idx_zspmax[end] ,      # 12. 参数 p 上边界松弛变量 s_pmax
+                    idx_zspmin(1)[1]:idx_zspmin[end] ,      # 13. 参数 p 下边界松弛变量 s_pmin
                     
-                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] , 
-                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] , 
-                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] , 
+                    idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ,     # 14. 状态 l1-cost 松弛变量 s_xc1 (s_xc1 >= |I_xc*x|)
+                    idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ,     # 15. 状态 l1-cost 辅助变量 s_xc2
+                    idx_zsxc3(1)[1]:idx_zsxc3(N)[end] ,     # 16. 状态 l1-cost 辅助变量 s_xc3
                     
-                    idx_zptr,
-                    idx_zchixtr(1)[1]:idx_zchixtr(N)[end] , 
-                    idx_zchiutr(1)[1]:idx_zchiutr(N)[end] , 
+                    idx_zptr,                               # 17. 参数 p 的信赖域辅助变量
+                    idx_zchixtr(1)[1]:idx_zchixtr(N)[end] , # 18. 状态 x 的信赖域辅助变量 
+                    idx_zchiutr(1)[1]:idx_zchiutr(N)[end] , # 19. 控制 u 的信赖域辅助变量
                  ]
         num_z = length(idcs_z)
         Dims_z = length.(idcs_z)
@@ -524,6 +527,8 @@ struct IdcsLnrConPgm
                     idx_bxcn , 
                     idx_bxcp , 
 
+                    idx_bptrn,
+                    idx_bptrp,
                     idx_bxtr,
                     idx_butr,
                 ]
@@ -587,7 +592,7 @@ struct IdcsLnrConPgm
             idx_bumax, idx_bumin,
             idx_bpmax, idx_bpmin,
 
-            num_Ixc, dims_sxc1, dims_sxc2, dims_sxc3,
+            num_xc, dims_sxc1, dims_sxc2, dims_sxc3,
             idx_zsxc1, idx_zsxc2, idx_zsxc3,
             idx_bxcn, idx_bxcp,
 
@@ -630,12 +635,18 @@ mutable struct ScpSubPbm        # private data protection
     """ The standard conic problem from PTR's parsed discrete OPC"""
     # The indices of linear conic program's z,c,A,b,G,h
     idcsLnrConPgm::IdcsLnrConPgm
+    # The structure c, b, h
+    c::Vector{Float64}
+    b::Vector{Float64}
+    h::Vector{Float64}
+
     # The Matrix A, G
     A::Matrix{Float64}
+    Achk::Matrix{Float64}
     Asp::SparseMatrixCSC{Float64, Int64}
     G::Matrix{Float64}
     Gsp::SparseMatrixCSC{Float64, Int64}
-    # Linear conic problem including Sparse Matrix
+    # Linear conic problem including shared Sparse Matrix
     pgmLnrCon::LnrConPgm
     
     # The solution of subPbm
@@ -644,7 +655,7 @@ mutable struct ScpSubPbm        # private data protection
     function ScpSubPbm(scppbm::SCPPbm, trjpbm::AbstTrjPbm)::ScpSubPbm
         #local variables
         scpPrs = scppbm.scpPrs
-        nx, nu, np = trjPbm.dynmdl.nx, trjPbm.dynmdl.nu, trjPbm.dynmdl.np
+        nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
         N = scpPrs.N
 
         #problem-specific parameters: timeNodes-grid """
@@ -658,9 +669,17 @@ mutable struct ScpSubPbm        # private data protection
         # The indices of linear conic program's z,c,A,b,G,h
         idcs = IdcsLnrConPgm(scppbm, trjpbm)
 
+        # The structure c, b, h
+        c = fill(NaN, idcs.dims_z)
+        b = fill(NaN, idcs.dims_b)
+        dims_K = idcs.dims_K0 + idcs.dims_K2
+        h = zeros(Float64, dims_K)
+
         # The Matrix A, G and its sparse form
-        A = zeros(idcs.dims_b, idcs.dims_z)
+        A = fill(NaN, idcs.dims_b, idcs.dims_z)             # filled with NaN in case of data review afterward
+        Achk = zeros(idcs.dims_b, idcs.dims_z)
         Asp = spzeros(Float64, Int64, idcs.dims_b, idcs.dims_z)
+        I::Vector{Float64}; J::Vector{Float64};
         G = zeros(idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
         Gsp = spzeros(Float64, Int64, idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
 
@@ -669,10 +688,11 @@ mutable struct ScpSubPbm        # private data protection
         pgmLnrCon = LnrConPgm(  idcs.dims_z, 
                                 idcs.dims_b,  
                                 Asp, 
-                                idcs.dims_K0+idcs.dims_K2,
+                                dims_K,
                                 idcs.dims_K0,
                                 idcs.num_K2,
                                 idcs.Dims_K2,
+                                h,
                                 Gsp
                                 )
 

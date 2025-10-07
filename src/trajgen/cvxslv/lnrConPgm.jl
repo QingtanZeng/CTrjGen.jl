@@ -35,6 +35,8 @@ mutable struct LnrConPgm
 
     pwork::Ptr{ECOS.pwork}              # the interface structure of ECOS solver
 
+    solupgm::SoluLnrConPgm
+
     function LnrConPgm( n::Int64,   # number of all variables, =column(A)
                         p::Int64,   # number of all Ax=b constraints, =rows(A)
                         A::SparseMatrixCSC{Float64, Int64},     # complete sparse matrix structure filled with -1
@@ -43,6 +45,7 @@ mutable struct LnrConPgm
                         l::Int64,   
                         ncones::Int64,
                         q::Vector{Int},
+                        h::Vector{Float64},
                         G::SparseMatrixCSC{Float64, Int64},
                         )::LnrConPgm
 
@@ -52,11 +55,12 @@ mutable struct LnrConPgm
         b = zeros(Float64, p)   # set RHS vector of equalities
 
         nex=0
-        h = zeros(Float64, m)
 
         pwork = Ptr{ECOS.pwork}()
 
-        pgm = new(n, z, c, p, b, A, m, l, ncones, q, nex, h, G, pwork)
+        solupgm = SoluLnrConPgm(n)
+
+        pgm = new(n, z, c, p, b, A, m, l, ncones, q, nex, h, G, pwork,solupgm)
         return pgm
     end
 
@@ -71,15 +75,19 @@ mutable struct SoluLnrConPgm
     gap::Float64
     tau::Float64
 
+    exitcode::Int
+
     # Inner constructor with arguments
-    function SoluLnrConPgm()::SoluLnrConPgm
-        z = Vector{Float64}()
+    function SoluLnrConPgm(n::Int)::SoluLnrConPgm
+
+        z = zeros(Float64, n)       # the original solution of primal variables
         pcost = 0.0
         dcost = 0.0
         gap = 0.0
         tau = 0.0
+        exitcode = 0
         
-       solupgm = new(z, pcost, dcost, gap, tau)
+       solupgm = new(z, pcost, dcost, gap, tau, exitcode)
        return solupgm
     end
 end
@@ -89,10 +97,11 @@ mutable struct HistLnrConPgm
     pgm_hist::Vector{SoluLnrConPgm}
 end
 
-function LnrConPgm_setup(
-                        lnrConPgm::LnrConPgm,
-                        )::Nothing
-    LnrConPgm.pwork = ECOS.ECOS_setup(
+function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
+    pgm = subpbm.pgmLnrCon    
+
+    # reset the solver for next subpbm
+    pgm.pwork = ECOS.ECOS_setup(            # dive into solver and reset internal structure  directly
                 lnrConPgm.n,
                 lnrConPgm.m,
                 lnrConPgm.p,
@@ -109,5 +118,10 @@ function LnrConPgm_setup(
                 lnrConPgm.c,
                 lnrConPgm.h,
                 lnrConPgm.b, )
+
+    # reconfigure solver's parameters
+
+    # reset the initial variables z through C pointer to ECOS workspace directly
+    
     return nothing
 end

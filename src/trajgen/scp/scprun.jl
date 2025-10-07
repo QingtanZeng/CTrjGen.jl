@@ -1,78 +1,137 @@
 
 """ Public methods called to SCPPbm and SubPbm"""
-function scp_solve!()
+function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int8
+    scpPrs = scppbm.scpPrs
+    soluscp = scppbm.soluscp
+    solupgm = subpbm.lnrConPgm.solupgm
     
+    itrscp = 0
     while true
         
+        itrscp += 1 
         # online parsing from Problem2 to Problem3
-        scp_upd_dynbox()
-        scp_upd_tr()
+        scp_upd_dynbox!(subpbm, scppbm, trjpbm)
+        scp_upd_tr!(subpbm, scppbm, trjpbm)
+
+        scp_upd_cost!(subpbm, scppbm, trjpbm)
+
+        # review the final conic problem's data
+        scp_upd_pgm!(subpbm, scppbm)
 
         # solve ScpSubPbm
-        subpbm_solve!()
-        
-        # save Results from SoluLnrConPgm to ScpSolu
+        subpbm_solve!(subpbm)
+        # save Results from ScpSubSolu to ScpSolu
+        # Update SCPPbm and ScpSubPbm buffer from current ScpSolu 
+        scp_upd_subpbm!()
+        #scp_upd_scppbm!()
     
         # Calculate defect and Detect Feasibility
         # Update Problem 2&3 from current ScpSolu and TrjPbm
-        scp_upd_dyn!()
-
-
-        # Update SCPPbm and ScpSubPbm buffer from current ScpSolu 
-        scp_upd_scppbm!()
-        scp_upd_subpbm!()
+        scp_upd_dyn!(subpbm, scppbm, trjpbm)
 
         # Record to histscp
 
+        # Stopping criterion
+        flgOpt =false
+        flgFea = (solupgm.exitcode==ECOS.ECOS_OPTIMAL) && ( soluscp.flgFsbDyn == true)
+        if flgFea && flgOpt 
+            println("--- END: Feasible and Optimal ---") 
+            println()
+            soluscp.codescpexit = 1 
+            break
+        else if(itrscp > scpPrs.itrScpMax && flgFea)
+            println("---Iteration $itr  Continue: Feasible but Unoptimal ---")
+            codescpexit = 2
+            break
+        else
+            println("--- failed ---")
+        end
     end
+    scppbm.soluscp.itrscp = itrscp
 
     # save Results from ScpSolu to TrjPbm
 
+    return soluscp.codescpexit
 
 end
 
-function subpbm_solve!()
+function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
 
     # call solver
+    pgm = subpbm.lnrConPgm
+    pwork = pgm.pwork
+    solupgm = pgm.solupgm
+
+    solupgm.exitcode = ECOS.ECOS_solve(subpbm.lnrConPgm.pwork)
+
+    if solupgm.exitcode == ECOS.ECOS_OPTIMAL
+        pwork_loaded = unsafe_load(pwork)
+        info = unsafe_load(pwork_loaded.info)
+
+        # --- CRITICAL FIX: Safely copy the solution vector ---
+        # The original `unsafe_copyto!` is dangerous and causes memory corruption.
+        # The correct way is to create a safe, managed copy of the result.
+        solupgm.z = copy(unsafe_wrap(Array, pwork_loaded.x, pwork_loaded.n))
+        solupgm.gap = info.gap
+        solupgm.pcost = info.pcost
+    else
+        ;           #抛出异常
+    end
+
+    ECOS.ECOS_cleanup(pwork, 0)
 
     # Get intermediate data once for each loop
-    solupgm = 
-    histpgm = 
+    #histpgm = 
+    # save Results from SoluLnrConPgm to ScpSubSolu
     
 end
 
 # After Construct, Initialize SCP from guessed trajectory
-function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjPbm::AbstTrjPbm)::Nothing
+function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # Initialize SCP-problem2, Sub-problem3, and solver
     
     # SCP-Problem2: transcription
-    scp_upd_dyn!()
+    scp_upd_dyn!(subpbm,scppbm,trjpbm)
 
     # Sub-Problem3: Pre-parse
-    scp_init_bc!()
-    scp_init_vc!()          # initial and parse virtual control
-    scp_init_dynbox!()      # initial and parse box limits of dynamic system
-    scp_init_l1cost!()      # initial and parse L1-norm cost
-    scp_init_tr!()          # initial and parse trust region
+    scp_init_cost!(subpbm,scppbm,trjpbm)
+
+    scp_init_bc!(subpbm,scppbm,trjpbm)
+    scp_init_vc!(subpbm,scppbm,trjpbm)
+    scp_init_dynbox!(subpbm,scppbm,trjpbm)      # initial and parse box limits of dynamic system
+    scp_init_l1cost!(subpbm,scppbm,trjpbm)      # initial and parse L1-norm cost
+    scp_init_tr!(subpbm,scppbm,trjpbm)          # initial and parse trust region
     #scp_init_quacst!()      # initial and parse quadratic cost
 
+    # set sparse A, G,
+    scp_init_pgm!(subpbm, scppbm)
 end
 
+function scp_stopcritera!(subpbm::ScpSubPbm, scppbm::SCPPbm,)::Int
+
+end
 
 
 """ Private methods called from SCPPbm and SubPbm"""
-function scp_upd_scppbm!()
-    #update reference trajectory from ScpSolu
-    scppbm.xref = copy(ScpSolu.xd)
-    scppbm.uref = copy(ScpSolu.ud)
-    scppbm.pref = copy(ScpSolu.p)
+function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+    #update reference trajectory from pwork
+    idcs=subpbm.idcsLnrConPgm
+    pgm=subpbm.lnrConPgm
+    solupgm=subpbm.lnrConPgm.solupgm
+    z = solupgm.z
 
+    # update to scppbm
+    scppbm.xref = copy(z[idcs.idcs_z[1]])
+    scppbm.uref = copy(z[idcs.idcs_z[2]])
+    scppbm.pref = copy(z[idcs.idcs_z[3]])
+
+    # z to next pgm
+    pgm.z = copy(z)
     
 end
 
-function scp_upd_subpbm!()
+function scp_upd_scppbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
     #update reference trajectory from ScpPbm
     subpbm.xref = scppbm.xref
     
 end
-    
