@@ -80,7 +80,6 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     # Mc_X = [0.0 0 0; 0 0 0; 0 0 1]
     # cost_x = wxc*[0 0 1]*x
     wxc = 100.0
-    I_xc = [0.0 0 1]
     I_xc = [0.0, 0.0, 1.0]
     autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr,
                                     A0, x_0, AN, x_f,
@@ -103,14 +102,14 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50)
+    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50, feas_tol=1)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)
     N = prsscp.N
     wtr = 1.0
     wtrp = 1.0
-    wvc = 1.0
+    wvc = 100.0
     scppbm=SCPPbm(trjdb, prsscp, 
                     nothing, nothing, nothing, nothing,
                     sclscp, wtr, wtrp, wvc)

@@ -75,7 +75,7 @@ function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
 
     solupgm.exitcode = ECOS.ECOS_solve(subpbm.lnrConPgm.pwork)
 
-    if solupgm.exitcode == ECOS.ECOS_OPTIMAL
+    if solupgm.exitcode != ECOS.ECOS_FATAL
         pwork_loaded = unsafe_load(pwork)
         info = unsafe_load(pwork_loaded.info)
 
@@ -86,7 +86,7 @@ function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
         solupgm.gap = info.gap
         solupgm.pcost = info.pcost
     else
-        ;           #抛出异常
+        error("Unknown problem in solver .")
     end
 
     ECOS.ECOS_cleanup(pwork, 0)

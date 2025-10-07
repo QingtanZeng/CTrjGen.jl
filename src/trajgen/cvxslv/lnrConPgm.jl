@@ -119,9 +119,15 @@ function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
                 pgm.h,
                 pgm.b, )
 
+    if pgm.pwork == C_NULL
+        error("Failed to set up ECOS workspace.")
+    end
+
     # reconfigure solver's parameters
 
     # reset the initial variables z through C pointer to ECOS workspace directly
-    
+    pwork_loaded = unsafe_load(pwork)
+    unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
+
     return nothing
 end
