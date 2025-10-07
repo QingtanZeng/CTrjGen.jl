@@ -239,12 +239,23 @@ mutable struct SCPPbm           # private data protection
         soluscp = ScpSolu(scpPrs, trjpbm.dynmdl)
         histscp = ScpHist()
 
-        # The constructor `new` must be called with all fields
+        # The constructor `new` must be called with all fields in the correct order.
         scppbm = new(scpPrs, tNodes,
             xref, uref, pref,
             scpScl,
             dynDLTV, idcsDscrtzSys,
+            # Boundary conditions from trjpbm
+            trjpbm.A0, trjpbm.x_0, trjpbm.AN, trjpbm.x_f,
+            # Box limits from trjpbm.dyncstr
+            trjpbm.dyncstr.I_xO, trjpbm.dyncstr.xOHighThd, trjpbm.dyncstr.xOLowThd,
+            trjpbm.dyncstr.I_u, trjpbm.dyncstr.uHighThd, trjpbm.dyncstr.uLowThd,
+            trjpbm.dyncstr.I_p, trjpbm.dyncstr.pHighThd, trjpbm.dyncstr.pLowThd,
+            # L1-norm cost from trjpbm
+            trjpbm.wxc,
+            trjpbm.I_xc,
+            # Penalty weights
             wtr, wtrp, wvc,
+            # Solution and history
             soluscp, histscp)
         return scppbm
     end
@@ -707,4 +718,3 @@ mutable struct ScpSubPbm        # private data protection
         return subpbm
     end
 end
-
