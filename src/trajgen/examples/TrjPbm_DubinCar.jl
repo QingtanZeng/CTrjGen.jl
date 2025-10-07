@@ -5,11 +5,12 @@ include("../scp/scppbm.jl")
 include("../scp/discrtz.jl")
 include("../scp/parser.jl")
 include("../scp/scprun.jl")
+include("../utils/rk4.jl")
 
 using LinearAlgebra, SparseArrays,ECOS
 
 
-struct AutoTrjPbm_DubinCar <: AbstTrjPbm
+mutable struct AutoTrjPbm_DubinCar <: AbstTrjPbm
     # 动力学模型
     dynmdl::DynMdl
     # 动力学约束

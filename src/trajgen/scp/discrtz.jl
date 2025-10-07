@@ -15,8 +15,8 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
                     subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # local variables
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
-    N = trjpbm.scpPrs.N
-    Nsub = trjpbm.scpPrs.Nsub
+    N = scppbm.scpPrs.N
+    Nsub = scppbm.scpPrs.Nsub
     tNodes = scppbm.tNodes
     idcs = scppbm.idcsDscrtzSys
     soluscp = scppbm.soluscp
@@ -44,7 +44,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
                                         trjpbm.dynmdl)
         tSubGrid = collect(range(tNodes[node], tNodes[node+1], length=Nsub))
         P = rk4(ddt_P, P0, tSubGrid)
-        Pf = P[end]
+        Pf = P
 
         # update DLTV and pgm.A
         DLTVSys_upd!(node, Pf, idcs, trjpbm.dynmdl, dynDLTV)

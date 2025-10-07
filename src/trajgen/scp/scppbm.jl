@@ -457,7 +457,8 @@ struct IdcsLnrConPgm
         num_sx = n_sx*N
         dims_sxmax = num_sx
         dims_sxmin = num_sx
-        num_su = size(scppbm.I_ul, 1)*N
+        n_su = size(scppbm.I_ul, 1)
+        num_su = n_su*N
         dims_sumax = num_su
         dims_sumin = num_su
         num_sp = size(scppbm.I_pl, 1)
@@ -469,9 +470,9 @@ struct IdcsLnrConPgm
         idx_zsxmin = function(k::Int) 
             return ( ((k-1)*n_sx+1) : k*n_sx ).+ idx_zsxmax(N)[end]  end  
         idx_zsumax = function(k::Int) 
-            return ( ((k-1)*num_su+1) : k*num_su ).+ idx_zsxmin(N)[end]  end  
+            return ( ((k-1)*n_su+1) : k*n_su ).+ idx_zsxmin(N)[end]  end  
         idx_zsumin = function(k::Int) 
-            return ( ((k-1)*num_su+1) : k*num_su ).+ idx_zsumax(N)[end]  end  
+            return ( ((k-1)*n_su+1) : k*n_su ).+ idx_zsumax(N)[end]  end  
         idx_zspmax = (1:dims_spmax).+ idx_zsumin(N)[end]
         idx_zspmin = (1:dims_spmin).+ idx_zspmax[end]
 
@@ -491,7 +492,7 @@ struct IdcsLnrConPgm
         dims_sxc3 = num_xc
         
         idx_zsxc1 = function(k::Int) 
-            return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_bpmin[end]  end  
+            return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_zspmin[end]  end  
         idx_zsxc2 = function(k::Int) 
             return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_zsxc1(N)[end]  end  
         idx_zsxc3 = function(k::Int) 
@@ -541,8 +542,8 @@ struct IdcsLnrConPgm
                     idx_zsxmin(1)[1]:idx_zsxmin(N)[end] ,   # 9. 状态 x 下边界松弛变量 s_xmin
                     idx_zsumax(1)[1]:idx_zsumax(N)[end] ,   # 10. 控制 u 上边界松弛变量 s_umax
                     idx_zsumin(1)[1]:idx_zsumin(N)[end] ,   # 11. 控制 u 下边界松弛变量 s_umin
-                    idx_zspmax(1)[1]:idx_zspmax[end] ,      # 12. 参数 p 上边界松弛变量 s_pmax
-                    idx_zspmin(1)[1]:idx_zspmin[end] ,      # 13. 参数 p 下边界松弛变量 s_pmin
+                    idx_zspmax[1]:idx_zspmax[end] ,      # 12. 参数 p 上边界松弛变量 s_pmax
+                    idx_zspmin[1]:idx_zspmin[end] ,      # 13. 参数 p 下边界松弛变量 s_pmin
                     
                     idx_zsxc1(1)[1]:idx_zsxc1(N)[end] ,     # 14. 状态 l1-cost 松弛变量 s_xc1 (s_xc1 >= |I_xc*x|)
                     idx_zsxc2(1)[1]:idx_zsxc2(N)[end] ,     # 15. 状态 l1-cost 辅助变量 s_xc2
@@ -591,8 +592,8 @@ struct IdcsLnrConPgm
                     idx_zsxmin(1)[1]:idx_zsxmin(N)[end] ,
                     idx_zsumax(1)[1]:idx_zsumax(N)[end] , 
                     idx_zsumin(1)[1]:idx_zsumin(N)[end] , 
-                    idx_zspmax(1)[1]:idx_zspmax[end] , 
-                    idx_zspmin(1)[1]:idx_zspmin[end] , 
+                    idx_zspmax[1]:idx_zspmax[end] , 
+                    idx_zspmin[1]:idx_zspmin[end] , 
                     
                     idx_zsxc1(1)[1]:idx_zsxc1(N)[end] , 
                     idx_zsxc2(1)[1]:idx_zsxc2(N)[end] , 
