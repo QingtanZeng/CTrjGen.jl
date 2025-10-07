@@ -40,12 +40,14 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
             println()
             soluscp.codescpexit = 1 
             break
-        else if(itrscp > scpPrs.itrScpMax && flgFea)
+        elseif (itrscp > scpPrs.itrScpMax && flgFea)
             println("---Iteration $itr  Continue: Feasible but Unoptimal ---")
             codescpexit = 2
             break
         else
             println("--- failed ---")
+            soluscp.codescpexit = -1
+            break
         end
     end
 

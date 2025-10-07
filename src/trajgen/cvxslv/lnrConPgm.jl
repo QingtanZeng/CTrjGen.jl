@@ -102,22 +102,22 @@ function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
 
     # reset the solver for next subpbm
     pgm.pwork = ECOS.ECOS_setup(            # dive into solver and reset internal structure  directly
-                lnrConPgm.n,
-                lnrConPgm.m,
-                lnrConPgm.p,
-                lnrConPgm.l,
-                lnrConPgm.ncones,
-                lnrConPgm.q,
-                lnrConPgm.nex,
-                lnrConPgm.G.nzval,
-                lnrConPgm.G.colptr .-1,
-                lnrConPgm.G.rowval .-1,
-                lnrConPgm.A.nzval,
-                lnrConPgm.A.colptr .-1,
-                lnrConPgm.A.rowval .-1,
-                lnrConPgm.c,
-                lnrConPgm.h,
-                lnrConPgm.b, )
+                pgm.n,
+                pgm.m,
+                pgm.p,
+                pgm.l,
+                pgm.ncones,
+                pgm.q,
+                pgm.nex,
+                pgm.G.nzval,
+                pgm.G.colptr .-1,
+                pgm.G.rowval .-1,
+                pgm.A.nzval,
+                pgm.A.colptr .-1,
+                pgm.A.rowval .-1,
+                pgm.c,
+                pgm.h,
+                pgm.b, )
 
     # reconfigure solver's parameters
 

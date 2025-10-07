@@ -106,7 +106,7 @@ function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm):Not
     
 end
 
-function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
+function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -158,7 +158,7 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
 
 end
 
-function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
+function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
     # reset the defined conic problem and intermediate variables
     idcs = subpbm.idcsLnrConPgm
     pgm = subpbm.pgm
@@ -168,7 +168,7 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
     Gsp = subpbm.Gsp
 
     # reset z
-    scp_reset_z!(subpbm, scppbm)
+    scp_reset_z!(subpbm, scppbm, trjpbm)
 
     # check the {z,c,A,b,G,h}
     copyto!(pgm.c, subpbm.c)
@@ -240,6 +240,7 @@ function scp_init_vc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
     A, b = subpbm.A, subpbm.b
+    num_ic, num_fc, dims_vcdyn, = idcs.num_ic, idcs.num_fc, idcs.dims_vcdyn
     
     # set the (idx_bx, idx_zvc)
     A[idcs.idcs_bic, idcs.idcs_z[4]] = zeros(num_ic, dims_vcdyn)
@@ -292,7 +293,7 @@ function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)
 
 end 
 
-function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing      # initial and parse L1-norm cost
+function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse L1-norm cost
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -315,7 +316,7 @@ function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing      # ini
 
 end
 
-function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing          # initial and parse trust region
+function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing          # initial and parse trust region
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     A = subpbm.A
@@ -373,9 +374,9 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
     blk_Adyn = sparse( [fill(NaN, idcs.num_dyn, idcs.dims_x+idcs.dims_u+idcs.dims_p)] )
     blk_Afc =  sparse( [[zeros(num_fc, nx*(N-1)) fill(NaN, num_fc, nx)]   zeros(num_fc, idcs.dims_u)  fill(NaN, num_fc, idcs.dims_p)] )
     blk_vc =   sparse( Achk[idcs_b[1][1]:idcs_b[3][end], idcs_z[4]] )
-    blk_zero = spzeros(Float64, length(1:idx_bfc[end]), length(idcs_z[5][1]:idcs_z[end][end]) )
+    blk_zero = spzeros(Float64, length(1:idcs.idx_bfc[end]), length(idcs_z[5][1]:idcs_z[end][end]) )
 
-    blk_K = sparse( Achk[idx_bvcn[1]:end, :] )
+    blk_K = sparse( Achk[idcs.idx_bvcn[1]:end, :] )
 
     Asp = [ [ blk_Aic;
               blk_Adyn;
@@ -392,7 +393,7 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
     dims_K = idcs.dims_K0 + idcs.dims_K2
     dims_v1 = idcs.dims_x+idcs.dims_u+idcs.dims_p+idcs.dims_vcdyn
     subpbm.G = [zeros(dims_K, dims_v1)  Float64.(I(dims_K))]
-    subpgm.Gsp = sparse(G)
+    subpgm.Gsp = sparse(subpbm.G)
 
 end
 

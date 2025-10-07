@@ -53,8 +53,8 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     xO0HighThd = [2.5*widL, 5/360*2*pi]     # 横向三车道; 朝向角最大5°
     xO0LowThd  = [0.5*widL, -5/360*2*pi]    
 
-    pLowThd = [8.0,]    # 300m 135km/h 最短需要8s
-    pHighThd = [16.0,]  # 300m 80km/h 最长需要14s
+    pLowThd = [1.0,]    # 50m 135km/h 最短需要1.333s
+    pHighThd = [5.0,]  # 300m 80km/h 最长需要2.333s
 
     dyncstr = DynCstr(uLowThd, uHighThd, nothing,
                       nx_O0, I_O0, xO0LowThd, xO0HighThd,   # 0-order state constraints
@@ -65,7 +65,7 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     # 4.1 Initial constraint
     A0 = Float64.(I(nx)); x_0 = [2.5*widL; 0; 0];    
     # 4.2 Terminal constraint
-    AN = Float64.(I(nx)); x_f = [0.5*widL; 300; 0]; 
+    AN = Float64.(I(nx)); x_f = [0.5*widL; 50; 0]; 
 
     # Construct the initial trajectory data
     tf = 1
