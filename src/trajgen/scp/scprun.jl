@@ -39,18 +39,21 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
         flgOpt =false
         flgFea = (solupgm.exitcode==ECOS.ECOS_OPTIMAL) && ( soluscp.flgFsbDyn == true)
         if flgFea && flgOpt 
-            println("--- END: Feasible and Optimal ---") 
+            println("--- END:  $itrscp  Feasible and Optimal ---") 
             println()
             soluscp.codescpexit = 1 
             break
         elseif (itrscp > scpPrs.itrScpMax && flgFea)
-            println("---Iteration $itr  Continue: Feasible but Unoptimal ---")
+            println("--- END: $itrscp  Feasible but Unoptimal ---")
             codescpexit = 2
             break
-        else
+        elseif(itrscp > scpPrs.itrScpMax && !flgFea)
             println("--- failed ---")
             soluscp.codescpexit = -1
             break
+        else
+            println("---Iteration $itrscp  Continue: Feasible but Unoptimal ---")
+            continue
         end
     end
 
@@ -86,7 +89,7 @@ function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
         ;           #抛出异常
     end
 
-    #ECOS.ECOS_cleanup(pwork, 0)
+    ECOS.ECOS_cleanup(pwork, 0)
 
     # Get intermediate data once for each loop
     #histpgm = 

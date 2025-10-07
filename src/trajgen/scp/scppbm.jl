@@ -432,11 +432,11 @@ struct IdcsLnrConPgm
         idx_zsxmax = function(k::Int) 
             return ( ((k-1)*n_sx+1) : k*n_sx ).+ idx_zsvc3(N-1)[end]  end  
         idx_zsxmin = function(k::Int) 
-            return ( ((k-1)*nx+1) : k*n_sx ).+ idx_zsxmax(N)[end]  end  
+            return ( ((k-1)*n_sx+1) : k*n_sx ).+ idx_zsxmax(N)[end]  end  
         idx_zsumax = function(k::Int) 
-            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsxmin(N)[end]  end  
+            return ( ((k-1)*num_su+1) : k*num_su ).+ idx_zsxmin(N)[end]  end  
         idx_zsumin = function(k::Int) 
-            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsumax(N)[end]  end  
+            return ( ((k-1)*num_su+1) : k*num_su ).+ idx_zsumax(N)[end]  end  
         idx_zspmax = (1:dims_spmax).+ idx_zsumin(N)[end]
         idx_zspmin = (1:dims_spmin).+ idx_zspmax[end]
 
@@ -449,18 +449,18 @@ struct IdcsLnrConPgm
         
         # 2.2 Box block for jert
         # 2.3 Affine equalities from L1-norm cost
-        n_Idc = size(scppbm.I_xc, 1)
-        num_xc = n_Idc*N
+        n_xc = size(scppbm.I_xc, 1)
+        num_xc = n_xc*N
         dims_sxc1 = num_xc
         dims_sxc2 = num_xc
         dims_sxc3 = num_xc
         
         idx_zsxc1 = function(k::Int) 
-            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_bpmin[end]  end  
+            return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_bpmin[end]  end  
         idx_zsxc2 = function(k::Int) 
-            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc1(N)[end]  end  
+            return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_zsxc1(N)[end]  end  
         idx_zsxc3 = function(k::Int) 
-            return ( ((k-1)*n_Idc+1) : k*n_Idc ).+ idx_zsxc2(N)[end]  end  
+            return ( ((k-1)*n_xc+1) : k*n_xc ).+ idx_zsxc2(N)[end]  end  
         idx_bxcn = (1:num_xc).+ idx_bpmin[end]
         idx_bxcp = (1:num_xc).+ idx_bxcn[end]
 
@@ -469,20 +469,20 @@ struct IdcsLnrConPgm
         # 3.1 trust region auxiliary block
         num_ptr = np
         dims_chiptr = 1+2
-        idx_zptr = (1:dims_chiptr).+ idx_sxc3(N)[end]
+        idx_zptr = (1:dims_chiptr).+ idx_zsxc3(N)[end]
         idx_bptrn = (1:num_ptr).+ idx_bxcp[end]
         idx_bptrp = (1:num_ptr).+ idx_bptrn[end]
 
         num_xtr = nx*N
         dim_chixtr = (1+nx)             #  1N *ₖ [eta_k, mu_k]
-        dims_chixtr = N*dims_chixtr
+        dims_chixtr = N*dim_chixtr
         idx_zchixtr = function(k::Int) 
             return ( ((k-1)*dim_chixtr+1) : k*dim_chixtr ).+ idx_zptr[end]  end  
         idx_bxtr = (1:num_xtr).+ idx_bptrp[end]
 
         num_utr = nu*N
         dim_chiutr = (1+nu)             #  1N *ₖ [eta_k, mu_k]
-        dims_chiutr = N*dims_chiutr
+        dims_chiutr = N*dim_chiutr
         idx_zchiutr = function(k::Int) 
             return ( ((k-1)*dim_chiutr+1) : k*dim_chiutr ).+ idx_zchixtr(N)[end]  end  
         idx_butr = (1:num_utr).+ idx_bxtr[end]
