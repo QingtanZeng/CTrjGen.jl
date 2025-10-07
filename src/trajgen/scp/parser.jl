@@ -1,4 +1,5 @@
-using LinearAlgebra
+using ECOS, LinearAlgebra,SparseArrays
+include("../cvxslv/lnrconpgm.jl")
 
 """ Transscription and Parser online 
     From  [Trajectory Generation Problem 0&1] and [Discrete Conic Problem 3]
@@ -13,7 +14,7 @@ function scp_upd_dyn!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::N
     dscrtz!(    xref, uref, pref,
                 subpbm, scppbm, trjpbm)
 
-    dynDLTV.timeDiscrtz = Int(time_ns() - tstart) / 1e9
+    scppbm.dynDLTV.timeDiscrtz = Int(time_ns() - tstart) / 1e9
 
     # online parsing from Problem2 to Problem3
     scp_upd_dynAb!(subpbm, scppbm, trjpbm)
@@ -88,7 +89,7 @@ function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm):Not
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
-    pgm = subpbm.pgm
+    pgm = subpbm.pgmLnrCon
     c = subpbm.c
     wxc, wvc, wtrp, wtr = scppbm.wxc, scppbm.wvc, scppbm.wtrp, scppbm.wtr
 
@@ -140,8 +141,8 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     z[idcs.idcs_z[10]] = b[idcs.idcs_bumax] - kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
     z[idcs.idcs_z[11]] =  -1*b[idcs.idcs_bumin] + kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
     # For p
-    z[idcs.idcs_z[12]] = b[idcs.idcs_bpmax] - scppbm.I_sp*z[idcs.idcs_z[3]]
-    z[idcs.idcs_z[13]] = -1*b[idcs.idcs_bpmin] + scppbm.I_sp*z[idcs.idcs_z[3]]
+    z[idcs.idcs_z[12]] = b[idcs.idcs_bpmax] - scppbm.I_pl*z[idcs.idcs_z[3]]
+    z[idcs.idcs_z[13]] = -1*b[idcs.idcs_bpmin] + scppbm.I_pl*z[idcs.idcs_z[3]]
 
     # auxiliary variables of l1-norm cost
     xc = (kron(I(N), scppbm.I_xc)) * z[idcs.idcs_z[1]]
@@ -161,7 +162,7 @@ end
 function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
     # reset the defined conic problem and intermediate variables
     idcs = subpbm.idcsLnrConPgm
-    pgm = subpbm.pgm
+    pgm = subpbm.pgmLnrCon
     Achk = subpbm.Achk
     A = subpbm.A
     Asp = subpbm.Asp
@@ -175,7 +176,7 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     copyto!(pgm.b, subpbm.b)
     # update Asp
     for i  in 1:length(Asp.nzval)
-        Asp[i] = A[subpbm.I[i], subpbm.J[i]]
+        Asp.nzval[i] = A[subpbm.I[i], subpbm.J[i]]
     end
     pgm.A = Asp
     pgm.G = Gsp
@@ -191,7 +192,7 @@ function scp_init_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
-    pgm = subpbm.pgm
+    pgm = subpbm.pgmLnrCon
     c = subpbm.c
     wxc, wvc, wtrp, wtr = scppbm.wxc, scppbm.wvc, scppbm.wtrp, scppbm.wtr
 
@@ -228,10 +229,10 @@ function scp_init_bc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     A = subpbm.A
     b = subpbm.b
 
-    A[idcs.idx_bic, idcs.idx_zx(1)] = trjpbm.A0
-    b[idcs.idx_bic] = trjpbm.x_0
-    A[idcs.idx_bfc, idcs.idx_zx(1)] = trjpbm.AN
-    b[idcs.idx_bfc] = trjpbm.x_N
+    A[idcs.idx_bic, idcs.idx_zx(1)] = scppbm.A0
+    b[idcs.idx_bic] = scppbm.x_0
+    A[idcs.idx_bfc, idcs.idx_zx(1)] = scppbm.AN
+    b[idcs.idx_bfc] = scppbm.x_f
 
 end
 
@@ -393,7 +394,7 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
     dims_K = idcs.dims_K0 + idcs.dims_K2
     dims_v1 = idcs.dims_x+idcs.dims_u+idcs.dims_p+idcs.dims_vcdyn
     subpbm.G = [zeros(dims_K, dims_v1)  Float64.(I(dims_K))]
-    subpgm.Gsp = sparse(subpbm.G)
+    subpbm.Gsp = sparse(subpbm.G)
 
 end
 

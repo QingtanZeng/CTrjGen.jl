@@ -22,7 +22,7 @@ function ScpParas(; N::Int=10, Nsub::Int=10,
     feas_tol::Float64=1e-2)::ScpParas
 
     q_exit = 1e-2
-    prsscp = ScpParas(N, Nsub, itrScpMax, itrCSlvMax,
+    prsscp = new(N, Nsub, itrScpMax, itrCSlvMax,
         CSlvType,
         epsl_abs, epsl_rel,
         feas_tol, q_exit)
@@ -209,7 +209,7 @@ mutable struct SCPPbm           # private data protection
         if isnothing(tNodesE)
             tNodes = collect(range(0, 1, length=N))
         else
-            copyto!(tNodes, tNodesE)
+            tNodes =copy(tNodesE)
         end
         # Updated reference Trajectory(Shared)
         xref = [zeros(Float64, nx) for _ in 1:N]
@@ -247,9 +247,9 @@ mutable struct SCPPbm           # private data protection
             # Boundary conditions from trjpbm
             trjpbm.A0, trjpbm.x_0, trjpbm.AN, trjpbm.x_f,
             # Box limits from trjpbm.dyncstr
-            trjpbm.dyncstr.I_xO, trjpbm.dyncstr.xOHighThd, trjpbm.dyncstr.xOLowThd,
-            trjpbm.dyncstr.I_u, trjpbm.dyncstr.uHighThd, trjpbm.dyncstr.uLowThd,
-            trjpbm.dyncstr.I_p, trjpbm.dyncstr.pHighThd, trjpbm.dyncstr.pLowThd,
+            trjpbm.dyncstr.I_O0, trjpbm.dyncstr.xOHighThd, trjpbm.dyncstr.xOLowThd,
+            Float64.(I(nu)), trjpbm.dyncstr.uHighThd, trjpbm.dyncstr.uLowThd,
+            Float64.(I(np)), trjpbm.dyncstr.pHighThd, trjpbm.dyncstr.pLowThd,
             # L1-norm cost from trjpbm
             trjpbm.wxc,
             trjpbm.I_xc,
@@ -330,7 +330,7 @@ struct IdcsLnrConPgm
     dims_spmin::Int        # np
 
     idx_zsxmax::Function
-    idx_zsminx::Function
+    idx_zsxmin::Function
     idx_zsumax::Function
     idx_zsumin::Function
     idx_zspmax::UnitRange{Int}
@@ -431,10 +431,10 @@ struct IdcsLnrConPgm
 
         idx_zsxmax = function(k::Int) 
             return ( ((k-1)*n_sx+1) : k*n_sx ).+ idx_zsvc3(N-1)[end]  end  
-        idx_zsminx = function(k::Int) 
-            return ( ((k-1)*nx+1) : k*nx ).+ idx_zsxmax(N)[end]  end  
+        idx_zsxmin = function(k::Int) 
+            return ( ((k-1)*nx+1) : k*n_sx ).+ idx_zsxmax(N)[end]  end  
         idx_zsumax = function(k::Int) 
-            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsminx(N)[end]  end  
+            return ( ((k-1)*nu+1) : k*nu ).+ idx_zsxmin(N)[end]  end  
         idx_zsumin = function(k::Int) 
             return ( ((k-1)*nu+1) : k*nu ).+ idx_zsumax(N)[end]  end  
         idx_zspmax = (1:dims_spmax).+ idx_zsumin(N)[end]
@@ -503,7 +503,7 @@ struct IdcsLnrConPgm
                     idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] ,   # 7. vc 的 l1-norm 辅助变量 s_vc3 (-vc - s_vc1 + s_vc3 = 0)
 
                     idx_zsxmax(1)[1]:idx_zsxmax(N)[end] ,  # 8. 状态 x 上边界松弛变量 s_xmax
-                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,   # 9. 状态 x 下边界松弛变量 s_xmin
+                    idx_zsxmin(1)[1]:idx_zsxmin(N)[end] ,   # 9. 状态 x 下边界松弛变量 s_xmin
                     idx_zsumax(1)[1]:idx_zsumax(N)[end] ,   # 10. 控制 u 上边界松弛变量 s_umax
                     idx_zsumin(1)[1]:idx_zsumin(N)[end] ,   # 11. 控制 u 下边界松弛变量 s_umin
                     idx_zspmax(1)[1]:idx_zspmax[end] ,      # 12. 参数 p 上边界松弛变量 s_pmax
@@ -553,7 +553,7 @@ struct IdcsLnrConPgm
                     idx_zsvc3(1)[1]:idx_zsvc3(N-1)[end] , 
 
                     idx_zsxmax(1)[1]:idx_zsxmax(N)[end] , 
-                    idx_zsminx(1)[1]:idx_zsminx(N)[end] ,
+                    idx_zsxmin(1)[1]:idx_zsxmin(N)[end] ,
                     idx_zsumax(1)[1]:idx_zsumax(N)[end] , 
                     idx_zsumin(1)[1]:idx_zsumin(N)[end] , 
                     idx_zspmax(1)[1]:idx_zspmax[end] , 
@@ -596,7 +596,7 @@ struct IdcsLnrConPgm
             num_su, dims_sumax, dims_sumin,
             num_sp, dims_spmax, dims_spmin,
 
-            idx_zsxmax, idx_zsminx,
+            idx_zsxmax, idx_zsxmin,
             idx_zsumax, idx_zsumin,
             idx_zspmax, idx_zspmin,
             idx_bxmax, idx_bxmin,
@@ -654,6 +654,7 @@ mutable struct ScpSubPbm        # private data protection
     # The Matrix A, G
     A::Matrix{Float64}
     Achk::Matrix{Float64}
+    I::Vector{Float64}; J::Vector{Float64};
     Asp::SparseMatrixCSC{Float64, Int64}
     G::Matrix{Float64}
     Gsp::SparseMatrixCSC{Float64, Int64}
@@ -689,8 +690,8 @@ mutable struct ScpSubPbm        # private data protection
         # The Matrix A, G and its sparse form
         A = fill(NaN, idcs.dims_b, idcs.dims_z)             # filled with NaN in case of data review afterward
         Achk = zeros(idcs.dims_b, idcs.dims_z)
+        I=Vector{Float64}(); J=Vector{Float64}();
         Asp = spzeros(Float64, Int64, idcs.dims_b, idcs.dims_z)
-        I::Vector{Float64}; J::Vector{Float64};
         G = zeros(idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
         Gsp = spzeros(Float64, Int64, idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
 
@@ -712,7 +713,9 @@ mutable struct ScpSubPbm        # private data protection
 
         subpbm = new(tNodes, xref, uref, pref,
                             idcs,
-                            A, Asp, G, Gsp, 
+                            c, b, h,
+                            A, Achk,
+                            I,J, Asp, G, Gsp, 
                             pgmLnrCon,
                             solusubpbm)
         return subpbm

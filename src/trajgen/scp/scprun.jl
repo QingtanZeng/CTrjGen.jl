@@ -1,3 +1,6 @@
+include("./parser.jl")
+using ECOS, LinearAlgebra,SparseArrays
+
 
 """ Public methods called to SCPPbm and SubPbm"""
 function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int8
@@ -17,7 +20,7 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
         scp_upd_cost!(subpbm, scppbm, trjpbm)
 
         # review the final conic problem's data
-        scp_upd_pgm!(subpbm, scppbm)
+        scp_upd_pgm!(subpbm, scppbm, trjpbm)
 
         # solve ScpSubPbm
         subpbm_solve!(subpbm)
@@ -126,8 +129,12 @@ function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm):
     z = solupgm.z
 
     # update to scppbm
-    copyto!(scppbm.xref, z[idcs.idcs_z[1]])
-    copyto!(scppbm.uref, z[idcs.idcs_z[2]])
+    for k in 1:scppbm.scpPrs.N
+        idx_zxk = idcs.idx_zx(k)
+        idx_zuk = idcs.idx_zu(k)
+        copyto!(scppbm.xref[k], @view z[idx_zxk])
+        copyto!(scppbm.uref[k], @view z[idx_zuk])
+    end
     copyto!(scppbm.pref, z[idcs.idcs_z[3]])
 
     # z to next pgm

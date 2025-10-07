@@ -116,7 +116,7 @@ end
                     sclscp, wtr, wtrp, wvc)
 
     # Construct the sub-problem and its convex solver
-    subpbm=ScpSubPbm(scppbm, trjpbm)
+    subpbm=ScpSubPbm(scppbm, trjdb)
 
 # 2.0 Initialize Guess, SCP-problem, Sub-problem, and solver
 #       including scaling and preparse
@@ -142,7 +142,7 @@ end
 
     trjdb.pref = [tf,]
 
-    scp_init!(subpbm, scppbm, trjdb))
+    scp_init!(subpbm, scppbm, trjdb)
 
 # 3.0 iteritive solving loop
     scp_solve!(subpbm, scppbm, trjdb)
