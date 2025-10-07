@@ -49,6 +49,7 @@ function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::N
         # b's dynamic part
         b[idx_bxk] = -1*dltv.rn[node]
     end
+    return nothing
 end
 
 function scp_upd_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Nothing
@@ -59,14 +60,15 @@ function scp_upd_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::
 
     #[ Ixl  IsMax   0    * [x; sMax; sMin] =[Max; Min]
     #  Ixl  0    -IsMin] 
-    b[idcs.idcs_bxmax] = Float64.(kron(ones(N), scppbm.xHighThd))
-    b[idcs.idcs_bxmin] = Float64.(kron(ones(N), scppbm.xLowThd))
+    b[idcs.idx_bxmax] = Float64.(kron(ones(N), scppbm.xHighThd))
+    b[idcs.idx_bxmin] = Float64.(kron(ones(N), scppbm.xLowThd))
 
-    b[idcs.idcs_bumax] = Float64.(kron(ones(N), scppbm.uHighThd))
-    b[idcs.idcs_bumin] = Float64.(kron(ones(N), scppbm.uLowThd))
+    b[idcs.idx_bumax] = Float64.(kron(ones(N), scppbm.uHighThd))
+    b[idcs.idx_bumin] = Float64.(kron(ones(N), scppbm.uLowThd))
 
-    b[idcs.idcs_bpmax] = Float64.(scppbm.pHighThd)
-    b[idcs.idcs_bpmin] = Float64.(scppbm.pLowThd)
+    b[idcs.idx_bpmax] = Float64.(scppbm.pHighThd)
+    b[idcs.idx_bpmin] = Float64.(scppbm.pLowThd)
+    return nothing
 end
 
 function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Nothing
@@ -81,6 +83,7 @@ function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Noth
     b[idcs.idx_bxtr] = [x for xk in xref for x in xk]
 
     b[idcs.idx_butr] = [u for uk in uref for u in uk]
+    return nothing
 end
 
 function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm):Nothing
@@ -99,11 +102,11 @@ function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm):Not
     # auxiliary variables of l1-norm cost, sxc1, sxc2, sxc3
     c[idcs.idcs_z[14]] = wxc * ones(idcs.dims_sxc1)
     # trust region's weights: update from defect
-    c[idcs.idcs_z[17]] = wtrp*[1; zeros(idcs.dims_p)]
+    c[idcs.idcs_z[17]] = wtrp*[1; zeros(idcs.dims_chiptr-1)]
     c[idcs.idcs_z[18]] = wtr*kron(ones(N), [1; zeros(nx)])
     c[idcs.idcs_z[19]] = wtr*kron(ones(N), [1; zeros(nu)])
 
-    
+    return nothing
 end
 
 function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
@@ -134,17 +137,17 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     # We initialize them based on the reference trajectory. If the reference violates
     # the bounds, the initial slack variable will be negative, which is acceptable
     xl = kron(I(N), scppbm.I_xl) * z[idcs.idcs_z[1]]
-    z[idcs.idcs_z[8]] = b[idcs.idcs_bxmax] - xl
-    z[idcs.idcs_z[9]] = -1*b[idcs.idcs_bxmin] + xl
+    z[idcs.idcs_z[8]] = b[idcs.idx_bxmax] - xl
+    z[idcs.idcs_z[9]] = -1*b[idcs.idx_bxmin] + xl
     # For u
-    z[idcs.idcs_z[10]] = b[idcs.idcs_bumax] - kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
-    z[idcs.idcs_z[11]] =  -1*b[idcs.idcs_bumin] + kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
+    z[idcs.idcs_z[10]] = b[idcs.idx_bumax] - kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
+    z[idcs.idcs_z[11]] =  -1*b[idcs.idx_bumin] + kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
     # For p
-    z[idcs.idcs_z[12]] = b[idcs.idcs_bpmax] - scppbm.I_pl*z[idcs.idcs_z[3]]
-    z[idcs.idcs_z[13]] = -1*b[idcs.idcs_bpmin] + scppbm.I_pl*z[idcs.idcs_z[3]]
+    z[idcs.idcs_z[12]] = b[idcs.idx_bpmax] - scppbm.I_pl*z[idcs.idcs_z[3]]
+    z[idcs.idcs_z[13]] = -1*b[idcs.idx_bpmin] + scppbm.I_pl*z[idcs.idcs_z[3]]
 
     # auxiliary variables of l1-norm cost
-    xc = (kron(I(N), scppbm.I_xc)) * z[idcs.idcs_z[1]]
+    xc = (kron(I(N), scppbm.I_xc')) * z[idcs.idcs_z[1]]
     z[idcs.idcs_z[14]] = abs.(xc)  #sxc1>=|theta|
     #theta + sxc1 - sxc2 = 0
     z[idcs.idcs_z[15]] = xc + z[idcs.idcs_z[14]]
@@ -156,6 +159,8 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     z[idcs.idcs_z[18]] = zeros(idcs.dims_chixtr)    # same as x, u
     z[idcs.idcs_z[19]] = zeros(idcs.dims_chiutr)
 
+    return nothing
+
 end
 
 function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
@@ -164,7 +169,6 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     pgm = subpbm.pgmLnrCon
     Achk = subpbm.Achk
     A = subpbm.A
-    Asp = subpbm.Asp
     Gsp = subpbm.Gsp
 
     # reset z
@@ -173,15 +177,23 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     # check the {z,c,A,b,G,h}
     copyto!(pgm.c, subpbm.c)
     copyto!(pgm.b, subpbm.b)
-    # update Asp
-    for i  in 1:length(Asp.nzval)
-        Asp.nzval[i] = A[subpbm.I[i], subpbm.J[i]]
+    copyto!(Achk, A)
+    for idx in eachindex(A)
+        if( isnan.(A[idx]) )
+            Achk[idx] = 0.0
+        end
     end
-    pgm.A = Asp
+
+    # update Asp
+    for i  in 1:length(subpbm.Asp.nzval)
+        subpbm.Asp.nzval[i] = Achk[subpbm.I[i], subpbm.J[i]]
+    end
+    pgm.A = subpbm.Asp
     pgm.G = Gsp
 
     # reset solver
     LnrConPgm_upd!(subpbm)
+    return nothing
 end
 
 function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
@@ -213,7 +225,7 @@ function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
     # reconfigure solver's parameters
 
     # reset the initial variables z through C pointer to ECOS workspace directly
-    pwork_loaded = unsafe_load(pwork)
+    pwork_loaded = unsafe_load(pgm.pwork)
     unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
 
     return nothing
@@ -254,6 +266,7 @@ function scp_init_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::
     c[idcs.idcs_z[17]] = wtrp*[1; zeros(idcs.dims_chiptr-1)]
     c[idcs.idcs_z[18]] = wtr*kron(ones(N), [1; zeros(nx)])
     c[idcs.idcs_z[19]] = wtr*kron(ones(N), [1; zeros(nu)])
+    return nothing
 
 end
 
@@ -267,6 +280,7 @@ function scp_init_bc!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     b[idcs.idx_bic] = scppbm.x_0
     A[idcs.idx_bfc, idcs.idx_zx(1)] = scppbm.AN
     b[idcs.idx_bfc] = scppbm.x_f
+    return nothing
 
 end
 
@@ -278,22 +292,23 @@ function scp_init_vc!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     num_ic, num_fc, dims_vcdyn, = idcs.num_ic, idcs.num_fc, idcs.dims_vcdyn
     
     # set the (idx_bx, idx_zvc)
-    A[idcs.idcs_bic, idcs.idcs_z[4]] = zeros(num_ic, dims_vcdyn)
+    A[idcs.idx_bic, idcs.idcs_z[4]] = zeros(num_ic, dims_vcdyn)
     A[idcs.idcs_b[2], idcs.idcs_z[4]] = Float64.(kron(I(N-1), I(nx)))
-    A[idcs.idcs_bfc, idcs.idcs_z[4]] = zeros(num_fc, dims_vcdyn)
+    A[idcs.idx_bfc, idcs.idcs_z[4]] = zeros(num_fc, dims_vcdyn)
 
     # set the (idx_bvcn, idx_zsvc1_zsvc2)   v'-s1+s2=0
-    A[idcs.idcs_bvcn, idcs.idcs_z[4]] = Float64.(kron(I(N-1), I(nx)))    # set the (idx_bvcn_bvcp, idx_zvc)
-    A[idcs.idcs_bvcn, idcs.idcs_z[5]] = -1*Float64.(kron(I(N-1), I(nx)))
-    A[idcs.idcs_bvcn, idcs.idcs_z[6]] = Float64.(kron(I(N-1), I(nx)))
+    A[idcs.idx_bvcn, idcs.idcs_z[4]] = Float64.(kron(I(N-1), I(nx)))    # set the (idx_bvcn_bvcp, idx_zvc)
+    A[idcs.idx_bvcn, idcs.idcs_z[5]] = -1*Float64.(kron(I(N-1), I(nx)))
+    A[idcs.idx_bvcn, idcs.idcs_z[6]] = Float64.(kron(I(N-1), I(nx)))
     # set the (idx_bvcn, idx_zsvc1_zsvc2)   v'+s1-s3=0
-    A[idcs.idcs_bvcp, idcs.idcs_z[4]] = Float64.(kron(I(N-1), I(nx)))    # set the (idx_bvcn_bvcp, idx_zvc)
-    A[idcs.idcs_bvcp, idcs.idcs_z[5]] = Float64.(kron(I(N-1), I(nx)))
-    A[idcs.idcs_bvcp, idcs.idcs_z[7]] = -1*Float64.(kron(I(N-1), I(nx)))
+    A[idcs.idx_bvcp, idcs.idcs_z[4]] = Float64.(kron(I(N-1), I(nx)))    # set the (idx_bvcn_bvcp, idx_zvc)
+    A[idcs.idx_bvcp, idcs.idcs_z[5]] = Float64.(kron(I(N-1), I(nx)))
+    A[idcs.idx_bvcp, idcs.idcs_z[7]] = -1*Float64.(kron(I(N-1), I(nx)))
 
     # set the b[idx_bvcn_bvcp]
-    b[idcs.idcs_bvcn] = zeros(idcs.dims_vcdyn)
-    b[idcs.idcs_bvcp] = zeros(idcs.dims_vcdyn)
+    b[idcs.idx_bvcn] = zeros(idcs.dims_vcdyn)
+    b[idcs.idx_bvcp] = zeros(idcs.dims_vcdyn)
+    return nothing
 end
 
 function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse box limits of dynamic system
@@ -304,27 +319,28 @@ function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)
 
     #[ Ixl  IsMax   0    * [x; sMax; sMin] =[Max; Min]
     #  Ixl  0    -IsMin] 
-    A[idcs.idcs_bxmax, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xl))
-    A[idcs.idcs_bxmax, idcs.idcs_z[8]] = Float64.(kron(I(N), I(idcs.n_sx)))
-    b[idcs.idcs_bxmax] = Float64.(kron(ones(N), scppbm.xHighThd))
-    A[idcs.idcs_bxmin, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xl))
-    A[idcs.idcs_bxmin, idcs.idcs_z[9]] = -1*Float64.(kron(I(N), I(idcs.n_sx)))
-    b[idcs.idcs_bxmin] = Float64.(kron(ones(N), scppbm.xLowThd))
+    A[idcs.idx_bxmax, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xl))
+    A[idcs.idx_bxmax, idcs.idcs_z[8]] = Float64.(kron(I(N), I(idcs.n_sx)))
+    b[idcs.idx_bxmax] = Float64.(kron(ones(N), scppbm.xHighThd))
+    A[idcs.idx_bxmin, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xl))
+    A[idcs.idx_bxmin, idcs.idcs_z[9]] = -1*Float64.(kron(I(N), I(idcs.n_sx)))
+    b[idcs.idx_bxmin] = Float64.(kron(ones(N), scppbm.xLowThd))
 
 
-    A[idcs.idcs_bumax, idcs.idcs_z[2]] = Float64.(kron(I(N), scppbm.I_ul))
-    A[idcs.idcs_bumax, idcs.idcs_z[10]] = Float64.(kron(I(N), I(idcs.n_su)))
-    b[idcs.idcs_bumax] = Float64.(kron(ones(N), scppbm.uHighThd))
-    A[idcs.idcs_bumin, idcs.idcs_z[2]] = Float64.(kron(I(N), scppbm.I_ul))
-    A[idcs.idcs_bumin, idcs.idcs_z[11]] = -1*Float64.(kron(I(N), I(idcs.n_su)))
-    b[idcs.idcs_bumin] = Float64.(kron(ones(N), scppbm.uLowThd))
+    A[idcs.idx_bumax, idcs.idcs_z[2]] = Float64.(kron(I(N), scppbm.I_ul))
+    A[idcs.idx_bumax, idcs.idcs_z[10]] = Float64.(kron(I(N), I(idcs.n_su)))
+    b[idcs.idx_bumax] = Float64.(kron(ones(N), scppbm.uHighThd))
+    A[idcs.idx_bumin, idcs.idcs_z[2]] = Float64.(kron(I(N), scppbm.I_ul))
+    A[idcs.idx_bumin, idcs.idcs_z[11]] = -1*Float64.(kron(I(N), I(idcs.n_su)))
+    b[idcs.idx_bumin] = Float64.(kron(ones(N), scppbm.uLowThd))
 
-    A[idcs.idcs_bpmax, idcs.idcs_z[3]] = Float64.(I(idcs.num_sp))
-    A[idcs.idcs_bpmax, idcs.idcs_z[12]] = Float64.(I(idcs.num_sp))
-    b[idcs.idcs_bpmax] = Float64.(scppbm.pHighThd)
-    A[idcs.idcs_bpmin, idcs.idcs_z[3]] = Float64.(I(idcs.num_sp))
-    A[idcs.idcs_bpmin, idcs.idcs_z[13]] = -1*Float64.(I(idcs.num_sp))
-    b[idcs.idcs_bpmin] = Float64.(scppbm.pLowThd)
+    A[idcs.idx_bpmax, idcs.idcs_z[3]] = Float64.(I(idcs.num_sp))
+    A[idcs.idx_bpmax, idcs.idcs_z[12]] = Float64.(I(idcs.num_sp))
+    b[idcs.idx_bpmax] = Float64.(scppbm.pHighThd)
+    A[idcs.idx_bpmin, idcs.idcs_z[3]] = Float64.(I(idcs.num_sp))
+    A[idcs.idx_bpmin, idcs.idcs_z[13]] = -1*Float64.(I(idcs.num_sp))
+    b[idcs.idx_bpmin] = Float64.(scppbm.pLowThd)
+    return nothing
 
 end 
 
@@ -335,19 +351,20 @@ function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)
     A, b = subpbm.A, subpbm.b
 
     # set the (idx_bxcn_bxcp, idx_x)
-    A[idcs.idcs_bxcn, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xc))
-    A[idcs.idcs_bxcp, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xc))
+    A[idcs.idx_bxcn, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xc'))
+    A[idcs.idx_bxcp, idcs.idcs_z[1]] = Float64.(kron(I(N), scppbm.I_xc'))
 
     # set the (idx_bxcn, idx_zsvc1_zsvc2)   theta + sxc1 - sxc2 = 0
-    A[idcs.idcs_bxcn, idcs.idcs_z[14]] = Float64.(kron(I(N), I(idcs.num_xc)))
-    A[idcs.idcs_bxcn, idcs.idcs_z[15]] = -1*Float64.(kron(I(N), I(idcs.num_xc)))
+    A[idcs.idx_bxcn, idcs.idcs_z[14]] = Float64.(I(idcs.num_xc))
+    A[idcs.idx_bxcn, idcs.idcs_z[15]] = -1*Float64.(I(idcs.num_xc))
     # set the (idx_bxcn, idx_zsvc1_zsvc2)   theta - sxc1 + sxc3 = 0
-    A[idcs.idcs_bxcp, idcs.idcs_z[14]] = -1*Float64.(kron(I(N), I(idcs.num_xc)))
-    A[idcs.idcs_bxcp, idcs.idcs_z[16]] = Float64.(kron(I(N), I(idcs.num_xc)))
+    A[idcs.idx_bxcp, idcs.idcs_z[14]] = -1*Float64.(I(idcs.num_xc))
+    A[idcs.idx_bxcp, idcs.idcs_z[16]] = Float64.(I(idcs.num_xc))
 
     # set the b[idx_bxcn_bxcp]
-    b[idcs.idcs_bxcn] = zeros(idcs.num_xc)
-    b[idcs.idcs_bxcp] = zeros(idcs.num_xc)
+    b[idcs.idx_bxcn] = zeros(idcs.num_xc)
+    b[idcs.idx_bxcp] = zeros(idcs.num_xc)
+    return nothing
 
 end
 
@@ -380,22 +397,27 @@ function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::N
     A[idcs.idx_butr, idcs_z[19]] = Float64.(kron(I(N), [zeros(nu,1) -1*I(nu)]))
     b[idcs.idx_butr] = [u for uk in uref for u in uk]
 
+    return nothing
 end   
 
-function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm)::Nothing
+function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     idcs_z = idcs.idcs_z
     idcs_b = idcs.idcs_b 
     A = subpbm.A
     Achk = subpbm.Achk
-    Asp = subpbm.Asp
     num_ic, num_fc, = idcs.num_ic, idcs.num_fc
     pgm = subpbm.pgmLnrCon
 
     # check A
     copyto!(Achk, A)
-    Achk[isnan.(A)] .= 0.0
+    for idx in eachindex(A)
+        if( isnan.(A[idx]) )
+            Achk[idx] = 0.0
+        end
+    end
+        
     #= set sparse A's architecture
     
     [   blj_ic  | blkvc |   |
@@ -406,20 +428,20 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm)::Nothing
      ]
     =#
     blk_Aic =  sparse( [[fill(NaN, num_ic, nx)  zeros(num_ic, nx*(N-1))]  zeros(num_ic, idcs.dims_u)  fill(NaN, num_ic, idcs.dims_p)] )
-    blk_Adyn = sparse( [fill(NaN, idcs.num_dyn, idcs.dims_x+idcs.dims_u+idcs.dims_p)] )
+    blk_Adyn = sparse( fill(NaN, idcs.num_dyn, idcs.dims_x+idcs.dims_u+idcs.dims_p) )
     blk_Afc =  sparse( [[zeros(num_fc, nx*(N-1)) fill(NaN, num_fc, nx)]   zeros(num_fc, idcs.dims_u)  fill(NaN, num_fc, idcs.dims_p)] )
     blk_vc =   sparse( Achk[idcs_b[1][1]:idcs_b[3][end], idcs_z[4]] )
     blk_zero = spzeros(Float64, length(1:idcs.idx_bfc[end]), length(idcs_z[5][1]:idcs_z[end][end]) )
 
     blk_K = sparse( Achk[idcs.idx_bvcn[1]:end, :] )
 
-    Asp = [ [ blk_Aic;
+    subpbm.Asp = [ [ blk_Aic;
               blk_Adyn;
               blk_Afc;]   blk_vc  blk_zero ;
 
                         blk_K               ]
     
-    subpbm.I, subpbm.J, _ = findnz(Asp)
+    subpbm.I, subpbm.J, _ = findnz(subpbm.Asp)
     #for i  in 1:length(Asp.nzval)
     #    Asp[i] = A[I[i], J[i]]
     #end
@@ -427,8 +449,8 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm)::Nothing
     # set G
     dims_K = idcs.dims_K0 + idcs.dims_K2
     dims_v1 = idcs.dims_x+idcs.dims_u+idcs.dims_p+idcs.dims_vcdyn
-    subpbm.G = [zeros(dims_K, dims_v1)  Float64.(I(dims_K))]
-    subpbm.Gsp = sparse(subpbm.G)
+    subpbm.Gsp = [spzeros(Float64, dims_K, dims_v1)   spdiagm(0=>ones(Float64, dims_K))]
 
+    return nothing
 end
 

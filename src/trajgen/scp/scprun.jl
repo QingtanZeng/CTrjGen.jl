@@ -5,7 +5,7 @@ using ECOS, LinearAlgebra,SparseArrays
 function scp_solve!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm,)::Int8
     scpPrs = scppbm.scpPrs
     soluscp = scppbm.soluscp
-    solupgm = subpbm.lnrConPgm.solupgm
+    solupgm = subpbm.pgmLnrCon.solupgm
     
     itrscp = 0
     tstart=time_ns()
@@ -68,11 +68,11 @@ end
 function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
 
     # call solver
-    pgm = subpbm.lnrConPgm
+    pgm = subpbm.pgmLnrCon
     pwork = pgm.pwork
     solupgm = pgm.solupgm
 
-    solupgm.exitcode = ECOS.ECOS_solve(subpbm.lnrConPgm.pwork)
+    solupgm.exitcode = ECOS.ECOS_solve(pwork)
 
     if solupgm.exitcode != ECOS.ECOS_FATAL
         pwork_loaded = unsafe_load(pwork)
@@ -94,11 +94,15 @@ function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
     #histpgm = 
     # save Results from SoluLnrConPgm to ScpSubSolu
     
+    return nothing
 end
 
 # After Construct, Initialize SCP from guessed trajectory
 function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # Initialize SCP-problem2, Sub-problem3, and solver
+    copyto!( scppbm.xref, trjpbm.xref)
+    copyto!( scppbm.uref, trjpbm.uref)
+    copyto!( scppbm.pref, trjpbm.pref)
     
     # SCP-Problem2: transcription
     scp_upd_dyn!(subpbm,scppbm,trjpbm)
@@ -114,7 +118,9 @@ function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothi
     #scp_init_quacst!()      # initial and parse quadratic cost
 
     # set sparse A, G,
-    scp_init_pgm!(subpbm, scppbm)
+    scp_init_pgm!(subpbm, scppbm,trjpbm)
+
+    return nothing
 end
 
 function scp_stopcritera!(subpbm::ScpSubPbm, scppbm::SCPPbm,)::Int
@@ -126,8 +132,8 @@ end
 function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     #update reference trajectory from pwork
     idcs=subpbm.idcsLnrConPgm
-    pgm=subpbm.lnrConPgm
-    solupgm=subpbm.lnrConPgm.solupgm
+    pgm=subpbm.pgmLnrCon
+    solupgm=subpbm.pgmLnrCon.solupgm
     z = solupgm.z
 
     # update to scppbm
@@ -141,6 +147,8 @@ function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm):
 
     # z to next pgm
     copyto!(pgm.z, z)
+    
+    return nothing
     
 end
 

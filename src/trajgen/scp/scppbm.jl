@@ -357,6 +357,7 @@ struct IdcsLnrConPgm
     num_sx::Int         # rows(I_xl)*N, kron(I_N, I_xl) 
     dims_sxmax::Int        # nx*n
     dims_sxmin::Int        # nx*n
+    n_su::Int
     num_su::Int         # rows(I_ul)*N, kron(I_N, I_ul) 
     dims_sumax::Int        # nu*n
     dims_sumin::Int        # nu*n
@@ -485,7 +486,7 @@ struct IdcsLnrConPgm
         
         # 2.2 Box block for jert
         # 2.3 Affine equalities from L1-norm cost
-        n_xc = size(scppbm.I_xc, 1)
+        n_xc = Int(sum(scppbm.I_xc))
         num_xc = n_xc*N
         dims_sxc1 = num_xc
         dims_sxc2 = num_xc
@@ -629,7 +630,7 @@ struct IdcsLnrConPgm
             idx_bvcn, idx_bvcp,
 
             n_sx, num_sx, dims_sxmax, dims_sxmin,
-            num_su, dims_sumax, dims_sumin,
+            n_su, num_su, dims_sumax, dims_sumin,
             num_sp, dims_spmax, dims_spmin,
 
             idx_zsxmax, idx_zsxmin,
@@ -690,7 +691,7 @@ mutable struct ScpSubPbm        # private data protection
     # The Matrix A, G
     A::Matrix{Float64}
     Achk::Matrix{Float64}
-    I::Vector{Float64}; J::Vector{Float64};
+    I::Vector{Int64}; J::Vector{Int64};
     Asp::SparseMatrixCSC{Float64, Int64}
     G::Matrix{Float64}
     Gsp::SparseMatrixCSC{Float64, Int64}
@@ -726,7 +727,7 @@ mutable struct ScpSubPbm        # private data protection
         # The Matrix A, G and its sparse form
         A = fill(NaN, idcs.dims_b, idcs.dims_z)             # filled with NaN in case of data review afterward
         Achk = zeros(idcs.dims_b, idcs.dims_z)
-        I=Vector{Float64}(); J=Vector{Float64}();
+        I=Vector{Int64}(); J=Vector{Int64}();
         Asp = spzeros(Float64, Int64, idcs.dims_b, idcs.dims_z)
         G = zeros(idcs.dims_K0+idcs.dims_K2, idcs.dims_z)
         Gsp = spzeros(Float64, Int64, idcs.dims_K0+idcs.dims_K2, idcs.dims_z)

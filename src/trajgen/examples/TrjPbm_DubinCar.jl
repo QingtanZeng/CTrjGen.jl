@@ -1,6 +1,6 @@
 include("../mdl/auto.jl")
 include("../trjplan/trjpbm.jl")
-include("../cvxslv/lnrconpgm.jl")
+include("../cvxslv/lnrConPgm.jl")
 include("../scp/scppbm.jl")
 include("../scp/discrtz.jl")
 include("../scp/parser.jl")
