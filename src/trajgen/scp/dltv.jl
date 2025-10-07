@@ -52,12 +52,13 @@ mutable struct DLTVSys
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
-        return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, Pn, rn, timeDiscrtz)
+        return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, rn, timeDiscrtz)
     end
 end
 
 function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys, 
                         dltv::DLTVSys)::Nothing
+    nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
     # reshape back P_k
     x_kP1 = P[idcs.idx_x]
     A_k = reshape(P[idcs.idx_A], (nx, nx))
@@ -66,15 +67,14 @@ function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys,
     E_k = reshape(P[idcs.idx_E], (nx, np))
 
     # reference point
-    xref_k, uref_k, uref_kP1, pref_k = dltv.xref[node],dltv.uref[node],dltv.uref[node+1], dltv.pref[node]
+    xref_k, uref_k, uref_kP1, pref = dltv.xref[node],dltv.uref[node],dltv.uref[node+1], dltv.pref
 
     # assignment
-    dltv.xn[node] = copy(x_kP1)
-    dltv.An[node] = copy(A_k)
-    dltv.Bkn[node] = copy(B_kN)
-    dltv.BkP1n[node] = copy(B_kP)
-    dltv.En[node] = copy(E_k)
-    dltv.rn[node] = copy(x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref_k))
-
+    copyto!(dltv.xn[node], x_kP1)
+    copyto!(dltv.An[node], A_k)
+    copyto!(dltv.Bkn[node], B_kN)
+    copyto!(dltv.BkP1n[node], B_kP)
+    copyto!(dltv.En[node], E_k)
+    copyto!(dltv.rn[node], (x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref_k)))
     return nothing
 end

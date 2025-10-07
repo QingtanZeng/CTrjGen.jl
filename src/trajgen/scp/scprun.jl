@@ -6,6 +6,7 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
     solupgm = subpbm.lnrConPgm.solupgm
     
     itrscp = 0
+    tstart=time_ns()
     while true
         
         itrscp += 1 
@@ -22,7 +23,7 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
         subpbm_solve!(subpbm)
         # save Results from ScpSubSolu to ScpSolu
         # Update SCPPbm and ScpSubPbm buffer from current ScpSolu 
-        scp_upd_subpbm!()
+        scp_upd_subpbm!(subpbm, scppbm, trjpbm)
         #scp_upd_scppbm!()
     
         # Calculate defect and Detect Feasibility
@@ -47,6 +48,8 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int
             println("--- failed ---")
         end
     end
+
+    soluscp.timescp = Int(time_ns() - tstart) / 1e9
     scppbm.soluscp.itrscp = itrscp
 
     # save Results from ScpSolu to TrjPbm
@@ -71,14 +74,14 @@ function subpbm_solve!(subpbm::ScpSubPbm)::Nothing
         # --- CRITICAL FIX: Safely copy the solution vector ---
         # The original `unsafe_copyto!` is dangerous and causes memory corruption.
         # The correct way is to create a safe, managed copy of the result.
-        solupgm.z = copy(unsafe_wrap(Array, pwork_loaded.x, pwork_loaded.n))
+        copyto!(solupgm.z, unsafe_wrap(Array, pwork_loaded.x, pwork_loaded.n))
         solupgm.gap = info.gap
         solupgm.pcost = info.pcost
     else
         ;           #抛出异常
     end
 
-    ECOS.ECOS_cleanup(pwork, 0)
+    #ECOS.ECOS_cleanup(pwork, 0)
 
     # Get intermediate data once for each loop
     #histpgm = 
@@ -121,12 +124,12 @@ function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm):
     z = solupgm.z
 
     # update to scppbm
-    scppbm.xref = copy(z[idcs.idcs_z[1]])
-    scppbm.uref = copy(z[idcs.idcs_z[2]])
-    scppbm.pref = copy(z[idcs.idcs_z[3]])
+    copyto!(scppbm.xref, z[idcs.idcs_z[1]])
+    copyto!(scppbm.uref, z[idcs.idcs_z[2]])
+    copyto!(scppbm.pref, z[idcs.idcs_z[3]])
 
     # z to next pgm
-    pgm.z = copy(z)
+    copyto!(pgm.z, z)
     
 end
 

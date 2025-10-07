@@ -61,6 +61,8 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
     # discretization loop
     for node = 1:N-1
         # initialize P0 's x state as xref_k
+        P0 .= 0.0
+        P0[idcs.idx_A] = vec(Matrix{Float64}(I,nx,nx)) 
         P0[idcs.idx_x] = xref[node]
 
         # more clear packaging of d/dt*P(tau) = func(tau,x(tau)) used in rk4
@@ -76,7 +78,7 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
         DLTVsys_upd(node, Pf, idcs, dynDLTV)
 
         # Calculate defect and feasibility
-        soluscp.dfctDyn[node] = copy(xref[node+1] - dynDLTV.xn[node])
+        copyto!(soluscp.dfctDyn[node], (xref[node+1] - dynDLTV.xn[node]))
         if norm(soluscp.dfctDyn[node]) > scppbm.scpPrs.feas_tol
             soluscp.flgFsbDynVec[node] = false
             soluscp.flgFsbDyn = false

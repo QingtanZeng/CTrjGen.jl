@@ -107,7 +107,7 @@ mutable struct ScpSolu          # private data protection
         tNodes = Vector{Float64}()
         xd = [zeros(Float64, nx) for _ in 1:N]
         ud = [zeros(Float64, nu) for _ in 1:N]
-        p = [zeros(Float64, np) for _ in 1:N]
+        p = zeros(Float64, np) 
 
         scpsolu = new(codescpexit, flgFsb, flgOpt, itrscp, itrAllCvx, timescp,
             cost,
@@ -209,7 +209,7 @@ mutable struct SCPPbm           # private data protection
         if isnothing(tNodesE)
             tNodes = collect(range(0, 1, length=N))
         else
-            tNodes = copy(tNodesE)
+            copyto!(tNodes, tNodesE)
         end
         # Updated reference Trajectory(Shared)
         xref = [zeros(Float64, nx) for _ in 1:N]
