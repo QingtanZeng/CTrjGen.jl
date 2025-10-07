@@ -37,12 +37,12 @@ mutable struct DLTVSys
     """
     function DLTVSys(nx::Int64, nu::Int64, np::Int64, N::Int64)::DLTVSys        
         # 为向量的每个元素创建一个指定维度的未初始化矩阵
-        xn = [Vector{Float64}(undef, nx, 1) for _ in 1:N-1]
+        xn = [Vector{Float64}(undef, nx) for _ in 1:N-1]
         An = [Matrix{Float64}(undef, nx, nx) for _ in 1:N-1]
         Bkn = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
         BkP1n = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
         En = [Matrix{Float64}(undef, nx, np) for _ in 1:N-1]
-        rn = [Vector{Float64}(undef, nx, 1) for _ in 1:N-1]
+        rn = [Vector{Float64}(undef, nx) for _ in 1:N-1]
     
         # 初始化其他字段
         tNodes = Vector{Float64}()
@@ -52,12 +52,12 @@ mutable struct DLTVSys
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
-        return new(tNodes, xref, uref, pref, An, Bkn, BkP1n, En, rn, timeDiscrtz)
+        return new(tNodes, xref, uref, pref, xn, An, Bkn, BkP1n, En, rn, timeDiscrtz)
     end
 end
 
 function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys, 
-                        dltv::DLTVSys)::Nothing
+                        dynmdl::DynMdl, dltv::DLTVSys)::Nothing
     nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
     # reshape back P_k
     x_kP1 = P[idcs.idx_x]
@@ -75,6 +75,6 @@ function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys,
     copyto!(dltv.Bkn[node], B_kN)
     copyto!(dltv.BkP1n[node], B_kP)
     copyto!(dltv.En[node], E_k)
-    copyto!(dltv.rn[node], (x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref_k)))
+    copyto!(dltv.rn[node], (x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref)))
     return nothing
 end

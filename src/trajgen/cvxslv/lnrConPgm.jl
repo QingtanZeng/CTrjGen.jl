@@ -2,6 +2,31 @@ using LinearAlgebra
 using SparseArrays
 using ECOS
 
+mutable struct SoluLnrConPgm
+    #  updated states of solver in one iteraion of one subPbm
+    z::Vector{Float64}  # primal variables
+                        # dual variables
+    pcost::Float64
+    dcost::Float64
+    gap::Float64
+    tau::Float64
+
+    exitcode::Int
+
+    # Inner constructor with arguments
+    function SoluLnrConPgm(n::Int)::SoluLnrConPgm
+
+        z = zeros(Float64, n)       # the original solution of primal variables
+        pcost = 0.0
+        dcost = 0.0
+        gap = 0.0
+        tau = 0.0
+        exitcode = 0
+        
+       solupgm = new(z, pcost, dcost, gap, tau, exitcode)
+       return solupgm
+    end
+end
 
 """ definition and data-struct for the interface of linear conic program """
 # take ECOS as default solver
@@ -66,68 +91,7 @@ mutable struct LnrConPgm
 
 end
 
-mutable struct SoluLnrConPgm
-    #  updated states of solver in one iteraion of one subPbm
-    z::Vector{Float64}  # primal variables
-                        # dual variables
-    pcost::Float64
-    dcost::Float64
-    gap::Float64
-    tau::Float64
-
-    exitcode::Int
-
-    # Inner constructor with arguments
-    function SoluLnrConPgm(n::Int)::SoluLnrConPgm
-
-        z = zeros(Float64, n)       # the original solution of primal variables
-        pcost = 0.0
-        dcost = 0.0
-        gap = 0.0
-        tau = 0.0
-        exitcode = 0
-        
-       solupgm = new(z, pcost, dcost, gap, tau, exitcode)
-       return solupgm
-    end
-end
-
 mutable struct HistLnrConPgm
     # history states of solver in one subPbm
     pgm_hist::Vector{SoluLnrConPgm}
-end
-
-function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
-    pgm = subpbm.pgmLnrCon    
-
-    # reset the solver for next subpbm
-    pgm.pwork = ECOS.ECOS_setup(            # dive into solver and reset internal structure  directly
-                pgm.n,
-                pgm.m,
-                pgm.p,
-                pgm.l,
-                pgm.ncones,
-                pgm.q,
-                pgm.nex,
-                pgm.G.nzval,
-                pgm.G.colptr .-1,
-                pgm.G.rowval .-1,
-                pgm.A.nzval,
-                pgm.A.colptr .-1,
-                pgm.A.rowval .-1,
-                pgm.c,
-                pgm.h,
-                pgm.b, )
-
-    if pgm.pwork == C_NULL
-        error("Failed to set up ECOS workspace.")
-    end
-
-    # reconfigure solver's parameters
-
-    # reset the initial variables z through C pointer to ECOS workspace directly
-    pwork_loaded = unsafe_load(pwork)
-    unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
-
-    return nothing
 end

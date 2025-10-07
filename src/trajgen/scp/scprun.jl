@@ -1,9 +1,8 @@
-include("./parser.jl")
 using ECOS, LinearAlgebra,SparseArrays
 
 
 """ Public methods called to SCPPbm and SubPbm"""
-function scp_solve!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Int8
+function scp_solve!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm,)::Int8
     scpPrs = scppbm.scpPrs
     soluscp = scppbm.soluscp
     solupgm = subpbm.lnrConPgm.solupgm
@@ -124,7 +123,7 @@ end
 
 
 """ Private methods called from SCPPbm and SubPbm"""
-function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     #update reference trajectory from pwork
     idcs=subpbm.idcsLnrConPgm
     pgm=subpbm.lnrConPgm
@@ -145,8 +144,10 @@ function scp_upd_subpbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm):
     
 end
 
-function scp_upd_scppbm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_scppbm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     #update reference trajectory from ScpPbm
     subpbm.xref = scppbm.xref
     
 end
+
+

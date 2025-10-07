@@ -1,11 +1,10 @@
 using ECOS, LinearAlgebra,SparseArrays
-include("../cvxslv/lnrconpgm.jl")
 
 """ Transscription and Parser online 
     From  [Trajectory Generation Problem 0&1] and [Discrete Conic Problem 3]
     to SCPPbm and SubPbm Simultaneously
 """
-function scp_upd_dyn!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::Nothing
+function scp_upd_dyn!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm,)::Nothing
     
     # online transcription from Problem1 to Problem2
     tstart = Int(time_ns())
@@ -23,7 +22,7 @@ function scp_upd_dyn!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm,)::N
 end
 
 """ online parsing from Problem2 to Problem3 dealing with c, A, b and z"""
-function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -52,7 +51,7 @@ function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::N
     end
 end
 
-function scp_upd_dynbox!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -70,7 +69,7 @@ function scp_upd_dynbox!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::
     b[idcs.idcs_bpmin] = Float64.(scppbm.pLowThd)
 end
 
-function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     b = subpbm.b
@@ -84,7 +83,7 @@ function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm)::Noth
     b[idcs.idx_butr] = [u for uk in uref for u in uk]
 end
 
-function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm):Nothing
+function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm):Nothing
     # update the original weights from Problem1&2
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
@@ -107,7 +106,7 @@ function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm,trjpbm::AbstTrjPbm):Not
     
 end
 
-function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -159,7 +158,7 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
 
 end
 
-function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     # reset the defined conic problem and intermediate variables
     idcs = subpbm.idcsLnrConPgm
     pgm = subpbm.pgmLnrCon
@@ -185,10 +184,45 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     LnrConPgm_upd!(subpbm)
 end
 
+function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
+    pgm = subpbm.pgmLnrCon    
+
+    # reset the solver for next subpbm
+    pgm.pwork = ECOS.ECOS_setup(            # dive into solver and reset internal structure  directly
+                pgm.n,
+                pgm.m,
+                pgm.p,
+                pgm.l,
+                pgm.ncones,
+                pgm.q,
+                pgm.nex,
+                pgm.G.nzval,
+                pgm.G.colptr .-1,
+                pgm.G.rowval .-1,
+                pgm.A.nzval,
+                pgm.A.colptr .-1,
+                pgm.A.rowval .-1,
+                pgm.c,
+                pgm.h,
+                pgm.b, )
+
+    if pgm.pwork == C_NULL
+        error("Failed to set up ECOS workspace.")
+    end
+
+    # reconfigure solver's parameters
+
+    # reset the initial variables z through C pointer to ECOS workspace directly
+    pwork_loaded = unsafe_load(pwork)
+    unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
+
+    return nothing
+end
+
 
 """ Initial parsing from Problem2 to Problem3"""
 
-function scp_init_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_init_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -223,7 +257,7 @@ function scp_init_cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::
 
 end
 
-function scp_init_bc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing
+function scp_init_bc!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     A = subpbm.A
@@ -236,7 +270,7 @@ function scp_init_bc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
 
 end
 
-function scp_init_vc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing          # initial and parse virtual control
+function scp_init_vc!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing          # initial and parse virtual control
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -262,7 +296,7 @@ function scp_init_vc!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::No
     b[idcs.idcs_bvcp] = zeros(idcs.dims_vcdyn)
 end
 
-function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse box limits of dynamic system
+function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse box limits of dynamic system
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -294,7 +328,7 @@ function scp_init_dynbox!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)
 
 end 
 
-function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse L1-norm cost
+function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing      # initial and parse L1-norm cost
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
@@ -317,7 +351,7 @@ function scp_init_l1cost!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)
 
 end
 
-function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::Nothing          # initial and parse trust region
+function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing          # initial and parse trust region
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     A = subpbm.A
@@ -348,7 +382,7 @@ function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::ScpPbm, trjpbm::AbstTrjPbm)::N
 
 end   
 
-function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::ScpPbm)::Nothing
+function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm)::Nothing
     nx, nu, np = trjpbm.dynmdl.nx, trjpbm.dynmdl.nu, trjpbm.dynmdl.np
     idcs = subpbm.idcsLnrConPgm
     idcs_z = idcs.idcs_z

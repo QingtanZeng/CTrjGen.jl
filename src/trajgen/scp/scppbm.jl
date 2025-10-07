@@ -1,4 +1,37 @@
-using LinearAlgebra, SparseArrays
+using LinearAlgebra, SparseArrays, ECOS
+include("../cvxslv/lnrConPgm.jl")
+
+struct IdcsDscrtzSys
+    """ The index of d/dt*P(tau)=
+    d/dt*[  x(tau)               [   F;
+            P                        A*P;
+            P_Bk        =            (B*dltk+A*P_Bk);
+            P_BkP1                   (B*dltkP1+A*P_BkP1);
+            P_E   ]                  (E+A*P_E)]
+    """
+    idx_x::UnitRange{Int}
+    idx_A::UnitRange{Int}
+    idx_Bk::UnitRange{Int}
+    idx_BkP1::UnitRange{Int}
+    idx_E::UnitRange{Int}
+    lgh_P::Int64;
+
+    function IdcsDscrtzSys(dynmdl::DynMdl)::IdcsDscrtzSys
+        nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
+        idx_x = (1:nx)
+        idx_A = idx_x[end].+ (1:nx*nx)
+        idx_Bk = idx_A[end].+ (1:nx*nu)
+        idx_BkP1 = idx_Bk[end].+ (1:nx*nu)
+        idx_E = idx_BkP1[end].+ (1:nx*np)
+        lgh_P = length(idx_x) + length(idx_A) + length(idx_Bk) + length(idx_BkP1) + length(idx_E)
+
+        Idcs = new(idx_x, idx_A, idx_Bk, idx_BkP1, idx_E, lgh_P)
+
+        return Idcs
+    end
+end
+
+include("../scp/dltv.jl")
 
 """ Sub-Data structure of SCP-Problem 2"""
 mutable struct ScpParas
@@ -22,12 +55,14 @@ function ScpParas(; N::Int=10, Nsub::Int=10,
     feas_tol::Float64=1e-2)::ScpParas
 
     q_exit = 1e-2
-    prsscp = new(N, Nsub, itrScpMax, itrCSlvMax,
+    prsscp = ScpParas(N, Nsub, itrScpMax, itrCSlvMax,
         CSlvType,
         epsl_abs, epsl_rel,
         feas_tol, q_exit)
     return prsscp
 end
+
+
 mutable struct SCPScaling
     Sx::Matrix{Float64}  # State scaling coefficient matrix
     cx::Vector{Float64}  # State scaling offset vector
@@ -247,7 +282,7 @@ mutable struct SCPPbm           # private data protection
             # Boundary conditions from trjpbm
             trjpbm.A0, trjpbm.x_0, trjpbm.AN, trjpbm.x_f,
             # Box limits from trjpbm.dyncstr
-            trjpbm.dyncstr.I_O0, trjpbm.dyncstr.xOHighThd, trjpbm.dyncstr.xOLowThd,
+            trjpbm.dyncstr.I_O0, trjpbm.dyncstr.xO0HighThd, trjpbm.dyncstr.xO0LowThd,
             Float64.(I(nu)), trjpbm.dyncstr.uHighThd, trjpbm.dyncstr.uLowThd,
             Float64.(I(np)), trjpbm.dyncstr.pHighThd, trjpbm.dyncstr.pLowThd,
             # L1-norm cost from trjpbm

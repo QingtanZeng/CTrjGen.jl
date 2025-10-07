@@ -1,13 +1,12 @@
 include("../mdl/auto.jl")
 include("../trjplan/trjpbm.jl")
-include("../cvxslv/lnrConPgm.jl")
-include("../scp/dltv.jl")
+include("../cvxslv/lnrconpgm.jl")
 include("../scp/scppbm.jl")
 include("../scp/discrtz.jl")
 include("../scp/parser.jl")
 include("../scp/scprun.jl")
 
-using LinearAlgebra, SparseArrays
+using LinearAlgebra, SparseArrays,ECOS
 
 
 struct AutoTrjPbm_DubinCar <: AbstTrjPbm
@@ -21,6 +20,7 @@ struct AutoTrjPbm_DubinCar <: AbstTrjPbm
     AN::Matrix{Float64}
     x_f::Vector{Float64}
 
+    wxc::Float64
     I_xc::Vector{Float64}
 
     # Initial Guess Trajectory
@@ -83,7 +83,7 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     I_xc = [0.0, 0.0, 1.0]
     autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr,
                                     A0, x_0, AN, x_f,
-                                    I_xc,
+                                    wxc, I_xc,
                                     tf, tNodes, xref, uref, pref)
     return autotrjpbm
 end
@@ -102,7 +102,7 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50, feas_tol=1)
+    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50, feas_tol=1.0)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)
