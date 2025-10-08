@@ -7,7 +7,32 @@ include("../scp/parser.jl")
 include("../scp/scprun.jl")
 include("../utils/rk4.jl")
 
-using LinearAlgebra, SparseArrays,ECOS
+using LinearAlgebra, SparseArrays,ECOS, MAT, Plots
+
+function plotspm(M::Matrix{Float64})::Nothing
+
+    matwrite("./trjdb_A.mat", Dict("A"=>M) )
+
+    display_matrix = ifelse.(isnan.(M), 1, ifelse.(M .== 0, 2, 3))
+    # --- 3. 绘图 ---
+    println("正在生成图像...")
+    colors = [:gray, :white, :blue]
+    gr() # Ensure GR backend is active
+    mapmatrix = heatmap(
+        display_matrix,
+        c = cgrad(colors, categorical=true), # 使用分类调色板
+        colorbar = :none,                    # 分类图例通常不需要颜色条
+        aspect_ratio = 1,                    # 保证像素是正方形
+        yflip = true,                        # 翻转y轴，使[1,1]在左上角
+        axis = nothing,                      # 隐藏坐标轴刻度
+        border = :none,                      # 隐藏边框
+        title = "1000x1000 Matrix Visualization\n(Gray: NaN, White: 0.0, Blue: Non-zero)",
+        size = (1000, 1000) # 控制输出图像尺寸
+    )
+    display(mapmatrix)
+
+    return nothing
+end
 
 
 mutable struct AutoTrjPbm_DubinCar <: AbstTrjPbm
@@ -143,6 +168,52 @@ end
     trjdb.pref = [tf,]
 
     scp_init!(subpbm, scppbm, trjdb)
+    #plotspm(subpbm.A)
+    M = subpbm.A
+    matwrite("./trjdb_A.mat", Dict("A"=>M) )
+
+    # 用 1 代表 NaN，2 代表 0.0，3 代表非零值。
+    display_matrix = zeros(Int8, size(M,1), size(M,2))
+    for idx in eachindex(M)
+        if isnan(M[idx])==true
+            display_matrix[idx] = 1
+        elseif iszero(M[idx])==true
+            display_matrix[idx] = 2
+        elseif isone(abs(M[idx]))==true
+            display_matrix[idx] = 3
+        else
+            display_matrix[idx] = 4
+        end
+    end
+    
+    # --- 3. 绘图 ---
+    println("正在生成图像...")
+    # 1. 定义与分类矩阵对应的 RGBA 颜色
+    #    索引 1 -> 略透明的浅黑色 (对应 NaN)
+    #    索引 2 -> 非常透明的浅灰色 (对应 0.0)
+    #    索引 3 -> 红色 (对应 online parsing)
+    #    索引 4 -> 蓝色(对应 1和-1)
+    colors = [
+        RGBA(0.8, 0.8, 0.8, 0.8),  # 非常透明的浅灰色
+        :white,                   # 白色 (完全不透明)
+        :blue,                   # 亮蓝色 (完全不透明)
+        :red,                    # 红色 (完全不透明)
+    ]
+    gr() # Ensure GR backend is active
+    mapmatrix= heatmap(
+        display_matrix,
+        c = cgrad(colors, categorical=true), # 使用分类调色板
+        colorbar = :none,                    # 分类图例通常不需要颜色条
+        aspect_ratio = 1,                    # 保证像素是正方形
+        yflip = true,                        # 翻转y轴，使[1,1]在左上角
+        axis = nothing,                      # 隐藏坐标轴刻度
+        border = :none,                      # 隐藏边框
+        title = "$(size(M)) Sparse Matrix Visualization\n(Gray: NaN, White: 0.0, Blue: ±1)",
+        size = (1000, 1000), # 控制输出图像尺寸
+        dpi = 300 # 控制输出图像分辨率
+    )
+    display(mapmatrix)
+    savefig(mapmatrix, "./trjdb_A.png")
 
 # 3.0 iteritive solving loop
     scp_solve!(subpbm, scppbm, trjdb)
