@@ -119,6 +119,8 @@ function scp_init!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothi
 
     # set sparse A, G,
     scp_init_pgm!(subpbm, scppbm,trjpbm)
+    # reset z
+    scp_reset_z!(subpbm, scppbm, trjdb)
 
     return nothing
 end

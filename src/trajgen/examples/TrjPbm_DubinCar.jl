@@ -7,29 +7,88 @@ include("../scp/parser.jl")
 include("../scp/scprun.jl")
 include("../utils/rk4.jl")
 
-using LinearAlgebra, SparseArrays,ECOS, MAT, Plots
+using LinearAlgebra, SparseArrays,ECOS, MAT, Plots, Serialization,ProfileView
 
-function plotspm(M::Matrix{Float64})::Nothing
+function plotlpgm(subpbm::ScpSubPbm , name::String)::Nothing
+    pgmM = [    subpbm.pgmLnrCon.z'     NaN;
+                subpbm.c'               NaN;
+                subpbm.A                subpbm.b;  ]
+    println("构建的矩阵 M 的维度: ", size(pgmM))
+    plotspm(pgmM, name)
+    return nothing
+end
+function plotspm(M_in::Union{Matrix{Float64},Vector{Float64}}, name::String)::Nothing
 
-    matwrite("./trjdb_A.mat", Dict("A"=>M) )
+    if typeof(M_in) == Vector{Float64}
+        M = reshape(M_in, length(M_in), 1)
+    else
+        M=M_in
+    end
+    matwrite("./trjdb_$name.mat", Dict("$name"=>M) )
 
-    display_matrix = ifelse.(isnan.(M), 1, ifelse.(M .== 0, 2, 3))
+    # 用 1 代表 NaN，2 代表 0.0，3 代表非零值。
+    display_matrix = zeros(Int8, size(M,1), size(M,2));
+    for idx in eachindex(M)
+        if isnan(M[idx])==true
+            display_matrix[idx] = 1
+        elseif iszero(M[idx])==true
+            display_matrix[idx] = 2
+        elseif isone(M[idx])==true
+            display_matrix[idx] = 3
+        elseif isone(-M[idx])==true
+            display_matrix[idx] = 4
+        elseif M[idx] < 0
+            display_matrix[idx] = 5
+        else 
+            display_matrix[idx] = 6
+        end
+    end
+    
     # --- 3. 绘图 ---
     println("正在生成图像...")
-    colors = [:gray, :white, :blue]
+    # 1. 定义与分类矩阵对应的 RGBA 颜色
+    #    索引 1 -> 略透明的浅黑色 (对应 NaN)
+    #    索引 2 -> 非常透明的浅灰色 (对应 0.0)
+    #    索引 3 -> 红色 (对应 online parsing)
+    #    索引 4 -> 蓝色(对应 1和-1)
+    colors = [
+        RGBA(0.8, 0.8, 0.8, 0.8),  # 非常透明的浅灰色
+        :white,                   # 白色 (完全不透明)
+        :blue,                   # 亮蓝色 (完全不透明)
+        :purple,                   # 紫色 (完全不透明)
+        :red,                    # 红色 (完全不透明)
+        :green,                   # 绿色 (完全不透明)
+    ]
     gr() # Ensure GR backend is active
-    mapmatrix = heatmap(
+
+    # 自定义坐标轴的标签，让图表更清晰
+    widblk = 50
+    x_ticks_pos = [1:widblk:size(M, 2); size(M, 2)]
+    x_labels = ["$i" for i in x_ticks_pos]
+    # 最后一列是 'b'，它的标签需要特殊处理
+    x_labels[end]= "$(size(M,2)) (b)"
+
+    y_ticks_pos = [1;2;3:widblk:size(M, 1); size(M, 1)]
+    y_labels = ["z'", "c'"]
+    append!(y_labels, [ "$i" for i in 3:widblk:size(M,1) ]) # A1,:, A2,:, ...
+    push!(y_labels, "$(size(M,1))")
+
+    mapmatrix= heatmap(
         display_matrix,
         c = cgrad(colors, categorical=true), # 使用分类调色板
         colorbar = :none,                    # 分类图例通常不需要颜色条
         aspect_ratio = 1,                    # 保证像素是正方形
         yflip = true,                        # 翻转y轴，使[1,1]在左上角
-        axis = nothing,                      # 隐藏坐标轴刻度
+        #axis = nothing,                      # 隐藏坐标轴刻度
+        xticks = (x_ticks_pos, x_labels),
+        yticks = (y_ticks_pos, y_labels),
         border = :none,                      # 隐藏边框
-        title = "1000x1000 Matrix Visualization\n(Gray: NaN, White: 0.0, Blue: Non-zero)",
-        size = (1000, 1000) # 控制输出图像尺寸
+        title = "$name $(size(M)): Sparse Matrix Visualization\n(Gray: NaN, White: 0.0, Blue/Purple: ±1, red/green:-+)",
+        size = (1000, 1000), # 控制输出图像尺寸
+        dpi = 300 # 控制输出图像分辨率
     )
     display(mapmatrix)
+    savefig(mapmatrix, "./trjdb_$name.png")
 
     return nothing
 end
@@ -128,7 +187,7 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=10, Nsub=10, itrScpMax=30, itrCSlvMax=50, feas_tol=1.0)
+    prsscptpl=(N=10, Nsub=10, itrScpMax=10, itrCSlvMax=50, feas_tol=1.0)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)
@@ -167,57 +226,41 @@ end
 
     trjdb.pref = [tf,]
 
+    #tstart=time_ns();
     scp_init!(subpbm, scppbm, trjdb)
-    #plotspm(subpbm.A)
-    M = subpbm.A
-    matwrite("./trjdb_A.mat", Dict("A"=>M) )
-
-    # 用 1 代表 NaN，2 代表 0.0，3 代表非零值。
-    display_matrix = zeros(Int8, size(M,1), size(M,2))
-    for idx in eachindex(M)
-        if isnan(M[idx])==true
-            display_matrix[idx] = 1
-        elseif iszero(M[idx])==true
-            display_matrix[idx] = 2
-        elseif isone(abs(M[idx]))==true
-            display_matrix[idx] = 3
-        else
-            display_matrix[idx] = 4
-        end
-    end
-    
-    # --- 3. 绘图 ---
-    println("正在生成图像...")
-    # 1. 定义与分类矩阵对应的 RGBA 颜色
-    #    索引 1 -> 略透明的浅黑色 (对应 NaN)
-    #    索引 2 -> 非常透明的浅灰色 (对应 0.0)
-    #    索引 3 -> 红色 (对应 online parsing)
-    #    索引 4 -> 蓝色(对应 1和-1)
-    colors = [
-        RGBA(0.8, 0.8, 0.8, 0.8),  # 非常透明的浅灰色
-        :white,                   # 白色 (完全不透明)
-        :blue,                   # 亮蓝色 (完全不透明)
-        :red,                    # 红色 (完全不透明)
-    ]
-    gr() # Ensure GR backend is active
-    mapmatrix= heatmap(
-        display_matrix,
-        c = cgrad(colors, categorical=true), # 使用分类调色板
-        colorbar = :none,                    # 分类图例通常不需要颜色条
-        aspect_ratio = 1,                    # 保证像素是正方形
-        yflip = true,                        # 翻转y轴，使[1,1]在左上角
-        axis = nothing,                      # 隐藏坐标轴刻度
-        border = :none,                      # 隐藏边框
-        title = "$(size(M)) Sparse Matrix Visualization\n(Gray: NaN, White: 0.0, Blue: ±1)",
-        size = (1000, 1000), # 控制输出图像尺寸
-        dpi = 300 # 控制输出图像分辨率
-    )
-    display(mapmatrix)
-    savefig(mapmatrix, "./trjdb_A.png")
+    plotlpgm(subpbm, "pgm_init")
+    #t_init = Int(time_ns() - tstart) / 1e9
 
 # 3.0 iteritive solving loop
+    #tstart=time_ns();
     scp_solve!(subpbm, scppbm, trjdb)
+    #t_solve = Int(time_ns() - tstart) / 1e9
 
+    #println("t_init: $t_init")
+    #println("t_solve: $t_solve")
+
+    #= online parsing from Problem2 to Problem3
+        scp_upd_dynbox!(subpbm, scppbm, trjdb)
+        scp_upd_tr!(subpbm, scppbm, trjdb)
+
+        scp_upd_cost!(subpbm, scppbm, trjdb)
+
+        # review the final conic problem's data
+        scp_upd_pgm!(subpbm, scppbm, trjdb)
+        plotlpgm(subpbm, "pgm")
+        
+
+        # solve ScpSubPbm
+        subpbm_solve!(subpbm)
+        # save Results from ScpSubSolu to ScpSolu
+        # Update SCPPbm and ScpSubPbm buffer from current ScpSolu 
+        scp_upd_subpbm!(subpbm, scppbm, trjdb)
+        #scp_upd_scppbm!()
+    
+        # Calculate defect and Detect Feasibility
+        # Update Problem 2&3 from current ScpSolu and trjdb
+        scp_upd_dyn!(subpbm, scppbm, trjdb)
+    =#
 
 # 4.0 Record, assessment, Plot
     

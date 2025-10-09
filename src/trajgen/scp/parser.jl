@@ -449,7 +449,7 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::N
     # set G
     dims_K = idcs.dims_K0 + idcs.dims_K2
     dims_v1 = idcs.dims_x+idcs.dims_u+idcs.dims_p+idcs.dims_vcdyn
-    subpbm.Gsp = [spzeros(Float64, dims_K, dims_v1)   spdiagm(0=>ones(Float64, dims_K))]
+    subpbm.Gsp = [spzeros(Float64, dims_K, dims_v1)   -spdiagm(0=>ones(Float64, dims_K))]
 
     return nothing
 end
