@@ -114,6 +114,8 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     N = scppbm.scpPrs.N
     idcs = subpbm.idcsLnrConPgm
     A, b = subpbm.A, subpbm.b
+
+    eps = 1e-6
     
     z = subpbm.pgmLnrCon.z
     dfctDyn = scppbm.soluscp.dfctDyn
@@ -126,9 +128,9 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     # vc=defect, reset virtual control at beginning, but l1-norm penalty, same as
     # 
     z[idcs.idcs_z[4]] = [vc for vck in dfctDyn for vc in vck]
-    z[idcs.idcs_z[5]] = abs.(z[idcs.idcs_z[4]])     # svc1>=|vc|
-    z[idcs.idcs_z[6]] = -1*z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]]          # v'-s1+s2=0
-    z[idcs.idcs_z[7]] = z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]]          # v'+s1-s3=0
+    z[idcs.idcs_z[5]] = abs.(z[idcs.idcs_z[4]]) .+ eps     # svc1>=|vc|
+    z[idcs.idcs_z[6]] = max.(-1*z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]], 0) .+ eps          # v'-s1+s2=0
+    z[idcs.idcs_z[7]] = max.(z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]], 0) .+ eps          # v'+s1-s3=0
 
     # auxiliary variables of box limits
     # I_xl*x + s_xmax = x_high => s_xmax = x_high - I_xl*x
@@ -137,30 +139,35 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     # We initialize them based on the reference trajectory. If the reference violates
     # the bounds, the initial slack variable will be negative, which is acceptable
     xl = kron(I(N), scppbm.I_xl) * z[idcs.idcs_z[1]]
-    z[idcs.idcs_z[8]] = b[idcs.idx_bxmax] - xl
-    z[idcs.idcs_z[9]] = -1*b[idcs.idx_bxmin] + xl
+    z[idcs.idcs_z[8]] = max.(b[idcs.idx_bxmax] - xl, 0) .+ eps
+    z[idcs.idcs_z[9]] = max.(-1*b[idcs.idx_bxmin] + xl, 0) .+ eps
     # For u
-    z[idcs.idcs_z[10]] = b[idcs.idx_bumax] - kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
-    z[idcs.idcs_z[11]] =  -1*b[idcs.idx_bumin] + kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]]
+    z[idcs.idcs_z[10]] = max.(b[idcs.idx_bumax] - kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]], 0) .+ eps
+    z[idcs.idcs_z[11]] =  max.(-1*b[idcs.idx_bumin] + kron(I(N), scppbm.I_ul)*z[idcs.idcs_z[2]], 0) .+ eps
     # For p
-    z[idcs.idcs_z[12]] = b[idcs.idx_bpmax] - scppbm.I_pl*z[idcs.idcs_z[3]]
-    z[idcs.idcs_z[13]] = -1*b[idcs.idx_bpmin] + scppbm.I_pl*z[idcs.idcs_z[3]]
+    z[idcs.idcs_z[12]] = max.(b[idcs.idx_bpmax] - scppbm.I_pl*z[idcs.idcs_z[3]], 0) .+ eps
+    z[idcs.idcs_z[13]] = max.(-1*b[idcs.idx_bpmin] + scppbm.I_pl*z[idcs.idcs_z[3]], 0) .+ eps
 
     # auxiliary variables of l1-norm cost
     xc = (kron(I(N), scppbm.I_xc')) * z[idcs.idcs_z[1]]
-    z[idcs.idcs_z[14]] = abs.(xc)  #sxc1>=|theta|
+    z[idcs.idcs_z[14]] = abs.(xc) .+ eps  #sxc1>=|theta|
     #theta + sxc1 - sxc2 = 0
-    z[idcs.idcs_z[15]] = xc + z[idcs.idcs_z[14]]
+    z[idcs.idcs_z[15]] = max.(xc + z[idcs.idcs_z[14]], 0) .+ eps
     #theta - sxc1 + sxc3 = 0
-    z[idcs.idcs_z[16]] = -1*xc + z[idcs.idcs_z[14]]
+    z[idcs.idcs_z[16]] = max.(-1*xc + z[idcs.idcs_z[14]], 0) .+ eps
 
     # auxiliary variables of trust region
-    z[idcs.idcs_z[17]] = zeros(idcs.dims_chiptr)    # at beginning p-pref=0
+    z[idcs.idcs_z[17]] = ones(idcs.dims_chiptr)*1.0    # at beginning p-pref=0, 1s as adjust range
     z[idcs.idcs_z[18]] = zeros(idcs.dims_chixtr)    # same as x, u
+    for idx in 1:N
+        z[idcs.idx_zchixtr(idx)[1]] = 5.0               # 5=norm(x) as adjust range
+    end
     z[idcs.idcs_z[19]] = zeros(idcs.dims_chiutr)
+    for idx in 1:N
+        z[idcs.idx_zchiutr(idx)[1]] = 3.0               # 3=norm(x) as adjust range
+    end
 
     return nothing
-
 end
 
 function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::Nothing
@@ -225,8 +232,8 @@ function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
     # reconfigure solver's parameters
 
     # reset the initial variables z through C pointer to ECOS workspace directly
-    pwork_loaded = unsafe_load(pgm.pwork)
-    unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
+    #pwork_loaded = unsafe_load(pgm.pwork)
+    #unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
 
     return nothing
 end
@@ -383,7 +390,7 @@ function  scp_init_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::N
     b[idcs.idx_bptrn] = pref
 
     A[idcs.idx_bptrp, idcs.idx_zp] = Float64.(I(idcs.dims_p))
-    A[idcs.idx_bptrp, idcs.idx_zptr[1]] = Float64.(I(idcs.dims_p))           #p-etap+mup1 = pref
+    A[idcs.idx_bptrp, idcs.idx_zptr[1]] = Float64.(I(idcs.dims_p))           #p+etap-mup2 = pref
     A[idcs.idx_bptrp, idcs.idx_zptr[3]] = -1*Float64.(I(idcs.dims_p))
     b[idcs.idx_bptrp] = pref
 

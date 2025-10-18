@@ -27,7 +27,7 @@
                 // 如果 C 代码的编译路径和当前路径不一致，可能需要映射
                 // 提示: 在 C 代码的编译目录运行 `pwd` 获取 <build_path>
                 // "/<build_path>/my_c_lib": "${workspaceFolder}/src/my_c_lib"
-                "/home/zengqt/Projects_Linux/ecos_dbg_test/ecos_test/src": "${workspaceFolder}/ecos_test/src"
+                "/home/zengqt/Projects_Linux/CGNC_TrajGen/libs/ecos/src": "${workspaceFolder}/libs/ecos/src"
             }
         }
     ]

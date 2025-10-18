@@ -29,7 +29,6 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
     P0[idcs.idx_A] = vec(Matrix{Float64}(I,nx,nx)) 
     soluscp.flgFsbDyn = true
 
-
     # discretization loop
     for node = 1:N-1
         # initialize P0 's x state as xref_k
@@ -101,7 +100,7 @@ function derivP(P::Vector{Float64}, idcs::IdcsDscrtzSys,
     E_tau = dynmdl.E(x, u, p)
 
     # d/dt*P(tau)
-    F = dynmdl.f(x, u, p)
+    F = dynmdl.F(x, u, p)
     P_A = A_tau * P_fai
     P_BN = sgmN * B_tau + A_tau * P_faiBN
     P_BP = sgmP * B_tau + A_tau * P_faiBP

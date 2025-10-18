@@ -7,8 +7,10 @@ include("../scp/parser.jl")
 include("../scp/scprun.jl")
 include("../utils/rk4.jl")
 
-using LinearAlgebra, SparseArrays,ECOS, MAT, Plots, Serialization,ProfileView
+using LinearAlgebra, SparseArrays,ECOS
+# using MAT, Plots, Serialization,ProfileView
 
+#=
 function plotlpgm(subpbm::ScpSubPbm , name::String)::Nothing
     pgmM = [    subpbm.pgmLnrCon.z'     NaN;
                 subpbm.c'               NaN;
@@ -47,17 +49,13 @@ function plotspm(M_in::Union{Matrix{Float64},Vector{Float64}}, name::String)::No
     # --- 3. 绘图 ---
     println("正在生成图像...")
     # 1. 定义与分类矩阵对应的 RGBA 颜色
-    #    索引 1 -> 略透明的浅黑色 (对应 NaN)
-    #    索引 2 -> 非常透明的浅灰色 (对应 0.0)
-    #    索引 3 -> 红色 (对应 online parsing)
-    #    索引 4 -> 蓝色(对应 1和-1)
     colors = [
-        RGBA(0.8, 0.8, 0.8, 0.8),  # 非常透明的浅灰色
-        :white,                   # 白色 (完全不透明)
-        :blue,                   # 亮蓝色 (完全不透明)
-        :purple,                   # 紫色 (完全不透明)
-        :red,                    # 红色 (完全不透明)
-        :green,                   # 绿色 (完全不透明)
+        RGBA(0.8, 0.8, 0.8, 0.8),  # 非常透明的浅灰色:  NaN
+        :white,                   # 白色 (完全不透明):  0.0 
+        :blue,                   # 亮蓝色 (完全不透明): +1
+        :purple,                   # 紫色 (完全不透明): -1
+        :red,                    # 红色 (完全不透明)    <0
+        :green,                   # 绿色 (完全不透明)   >0
     ]
     gr() # Ensure GR backend is active
 
@@ -92,7 +90,7 @@ function plotspm(M_in::Union{Matrix{Float64},Vector{Float64}}, name::String)::No
 
     return nothing
 end
-
+=#
 
 mutable struct AutoTrjPbm_DubinCar <: AbstTrjPbm
     # 动力学模型
@@ -135,8 +133,8 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     nx_O0 = 2
     I_O0 = [1 0 0;
             0 0 1]
-    xO0HighThd = [2.5*widL, 5/360*2*pi]     # 横向三车道; 朝向角最大5°
-    xO0LowThd  = [0.5*widL, -5/360*2*pi]    
+    xO0HighThd = [2.7*widL, 5/360*2*pi]     # 横向三车道; 朝向角最大5°
+    xO0LowThd  = [0.3*widL, -5/360*2*pi]    
 
     tfref = sqrt(distance^2+(2*widL)^2)/(100*1e3/3600)
     pLowThd = [0.5* tfref,]    # distance m 135km/h 最短需要1.333s
@@ -187,7 +185,7 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=10, Nsub=10, itrScpMax=10, itrCSlvMax=50, feas_tol=1.0)
+    prsscptpl=(N=11, Nsub=10, itrScpMax=1, itrCSlvMax=50, feas_tol=1.0)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)
@@ -228,7 +226,7 @@ end
 
     #tstart=time_ns();
     scp_init!(subpbm, scppbm, trjdb)
-    plotlpgm(subpbm, "pgm_init")
+    # plotlpgm(subpbm, "pgm_init")
     #t_init = Int(time_ns() - tstart) / 1e9
 
 # 3.0 iteritive solving loop

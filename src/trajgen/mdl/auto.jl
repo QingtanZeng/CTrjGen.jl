@@ -4,8 +4,10 @@ struct DynMdl
     nu::Int64
     np::Int64
 
-    # Dynamics system
+    # Dynamics system without normalization
     f::Function
+    # Dynamics system with normalization
+    F::Function
     
     # Linearized LTI state equation
     # First-order systems of differential equations
@@ -56,7 +58,7 @@ function DynMdl_DubinCar()::DynMdl
         return f(x,u,p)
     end
 
-    dynmdl = DynMdl(nx, nu, np, f, A, B, E)
+    dynmdl = DynMdl(nx, nu, np, f, F, A, B, E)
 
     return dynmdl
 end
