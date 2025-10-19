@@ -232,8 +232,8 @@ function LnrConPgm_upd!(subpbm::ScpSubPbm)::Nothing
     # reconfigure solver's parameters
 
     # reset the initial variables z through C pointer to ECOS workspace directly
-    #pwork_loaded = unsafe_load(pgm.pwork)
-    #unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
+    pwork_loaded = unsafe_load(pgm.pwork)
+    unsafe_copyto!(pwork_loaded.x, pointer(pgm.z) ,pwork_loaded.n)
 
     return nothing
 end
@@ -285,7 +285,7 @@ function scp_init_bc!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
 
     A[idcs.idx_bic, idcs.idx_zx(1)] = scppbm.A0
     b[idcs.idx_bic] = scppbm.x_0
-    A[idcs.idx_bfc, idcs.idx_zx(1)] = scppbm.AN
+    A[idcs.idx_bfc, idcs.idx_zx(N)] = scppbm.AN
     b[idcs.idx_bfc] = scppbm.x_f
     return nothing
 

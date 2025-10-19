@@ -6,9 +6,10 @@ include("../scp/discrtz.jl")
 include("../scp/parser.jl")
 include("../scp/scprun.jl")
 include("../utils/rk4.jl")
+include("../examples/plot_DubinCar.jl")
 
 using LinearAlgebra, SparseArrays,ECOS
-# using MAT, Plots, Serialization,ProfileView
+#using MAT, Plots, Serialization,ProfileView
 
 #=
 function plotlpgm(subpbm::ScpSubPbm , name::String)::Nothing
@@ -125,16 +126,16 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     dynmdldubin = DynMdl_DubinCar()
     nx, nu, np = dynmdldubin.nx, dynmdldubin.nu, dynmdldubin.np
     # dynamic constraints
-    wAbsMax = 1/360*2*pi            # [ᵒ/s]>[rad/s] 朝向角 角速度
-    spdMin = 60*1e3/3600; spdMax = 135*1e3/3600;     # [Km/h]>[m/s] 高速行驶速度区间
+    wAbsMax = 6/360*2*pi            # [ᵒ/s]>[rad/s] 朝向角 角速度
+    spdMin = 90*1e3/3600; spdMax = 120*1e3/3600;     # [Km/h]>[m/s] 高速行驶速度区间
     uHighThd = [spdMax, wAbsMax]    # the highest limit of [spd, w]
     uLowThd  = [spdMin, -wAbsMax]         # the lowest limit of [spd, w]
 
     nx_O0 = 2
     I_O0 = [1 0 0;
             0 0 1]
-    xO0HighThd = [2.7*widL, 5/360*2*pi]     # 横向三车道; 朝向角最大5°
-    xO0LowThd  = [0.3*widL, -5/360*2*pi]    
+    xO0HighThd = [2.7*widL, 10/360*2*pi]     # 横向三车道; 朝向角最大5°
+    xO0LowThd  = [0.3*widL, -10/360*2*pi]    
 
     tfref = sqrt(distance^2+(2*widL)^2)/(100*1e3/3600)
     pLowThd = [0.5* tfref,]    # distance m 135km/h 最短需要1.333s
@@ -162,7 +163,7 @@ function AutoTrjPbm_DubinCar()::AutoTrjPbm_DubinCar
     # cost_x = θ²
     # Mc_X = [0.0 0 0; 0 0 0; 0 0 1]
     # cost_x = wxc*[0 0 1]*x
-    wxc = 100.0
+    wxc = 10000.0
     I_xc = [0.0, 0.0, 1.0]
     autotrjpbm = AutoTrjPbm_DubinCar(dynmdldubin, dyncstr,
                                     A0, x_0, AN, x_f,
@@ -185,14 +186,14 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=11, Nsub=10, itrScpMax=1, itrCSlvMax=50, feas_tol=1.0)
+    prsscptpl=(N=11, Nsub=10, itrScpMax=10, itrCSlvMax=50, feas_tol=1e-5)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)
     N = prsscp.N
     wtr = 1.0
     wtrp = 1.0
-    wvc = 100.0
+    wvc = 1000.0
     scppbm=SCPPbm(trjdb, prsscp, 
                     nothing, nothing, nothing, nothing,
                     sclscp, wtr, wtrp, wvc)
@@ -219,19 +220,25 @@ end
     end
 
     trjdb.uref = [[27.778; 0;] for _ in 1:N]
-    trjdb.uref[1][2] = -0.1/360*2*pi      # u1 = -1°/s
-    trjdb.uref[end][2] = 0.1/360*2*pi
+    trjdb.uref[1][2] = -1/360*2*pi      # u1 = -1°/s
+    trjdb.uref[end][2] = 1/360*2*pi
 
     trjdb.pref = [tf,]
 
     #tstart=time_ns();
     scp_init!(subpbm, scppbm, trjdb)
-    # plotlpgm(subpbm, "pgm_init")
+    #plotlpgm(subpbm, "pgm_init")
+    plottrj_init = plot_AutoTrjPbm_DubinCar(scppbm.xref)
     #t_init = Int(time_ns() - tstart) / 1e9
 
 # 3.0 iteritive solving loop
     #tstart=time_ns();
     scp_solve!(subpbm, scppbm, trjdb)
+    plottrj_result = plot_AutoTrjPbm_DubinCar(scppbm.xref)
+    plottrj_real = plot_AutoTrjPbm_DubinCar(scppbm.dynDLTV.xn)
+    display(plottrj_init)
+    display(plottrj_result)
+    display(plottrj_real)
     #t_solve = Int(time_ns() - tstart) / 1e9
 
     #println("t_init: $t_init")

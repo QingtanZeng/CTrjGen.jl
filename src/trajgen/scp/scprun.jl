@@ -42,11 +42,11 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm,)::Int
             println()
             soluscp.codescpexit = 1 
             break
-        elseif (itrscp > scpPrs.itrScpMax && flgFea)
+        elseif (itrscp == scpPrs.itrScpMax && flgFea)
             println("--- END: $itrscp  Feasible but Unoptimal ---")
             codescpexit = 2
             break
-        elseif(itrscp > scpPrs.itrScpMax && !flgFea)
+        elseif(itrscp == scpPrs.itrScpMax && !flgFea)
             println("--- failed ---")
             soluscp.codescpexit = -1
             break
