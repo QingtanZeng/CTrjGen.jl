@@ -186,7 +186,7 @@ end
     nx, nu, np = trjdb.dynmdl.nx, trjdb.dynmdl.nu, trjdb.dynmdl.np
 
     # configure SCP parameters
-    prsscptpl=(N=11, Nsub=10, itrScpMax=10, itrCSlvMax=50, feas_tol=1e-5)
+    prsscptpl=(N=11, Nsub=10, itrScpMax=10, itrPgmMax=50, feas_tol=1e-5)
     prsscp=ScpParas(;prsscptpl...)
     # Construct SCP problem and its solution
     sclscp = SCPScaling(nx, nu, np)

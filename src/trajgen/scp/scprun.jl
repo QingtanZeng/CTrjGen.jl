@@ -14,6 +14,7 @@ function scp_solve!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm,)::Int
         itrscp += 1 
         # online parsing from Problem2 to Problem3
         scp_upd_dynbox!(subpbm, scppbm, trjpbm)
+        scp_upd_cllsfree!(subpbm, scppbm, trjpbm)
         scp_upd_tr!(subpbm, scppbm, trjpbm)
 
         scp_upd_cost!(subpbm, scppbm, trjpbm)

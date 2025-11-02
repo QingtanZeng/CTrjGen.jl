@@ -49,13 +49,33 @@ function dscrtz!(   xref::Vector{Vector{Float64}}, uref::Vector{Vector{Float64}}
         DLTVSys_upd!(node, Pf, idcs, trjpbm.dynmdl, dynDLTV)
 
         # Calculate defect and feasibility
-        copyto!(soluscp.dfctDyn[node], (xref[node+1] - dynDLTV.xn[node]))
-        if norm(soluscp.dfctDyn[node]) > scppbm.scpPrs.feas_tol
-            soluscp.flgFsbDynVec[node] = false
+        copyto!(soluscp.dftDyn[node+1], (xref[node+1] - dynDLTV.xn[node]))
+        soluscp.nrmdftdyn[node+1] = norm(soluscp.dftDyn[node+1])
+        if soluscp.nrmdftdyn[node+1]  > scppbm.scpPrs.feas_tol
+            soluscp.flgFsbDynVec[node+1] = false
             soluscp.flgFsbDyn = false
         else
-            soluscp.flgFsbDynVec[node] = true
+            soluscp.flgFsbDynVec[node+1] = true
         end
+    end
+    # Calculate initial and conditions' defect and feasibility
+    # initial condition
+    copyto!(soluscp.dftDyn[1], scppbm.bc.x0 - xref[1])
+    soluscp.nrmdftdyn[1] = norm(soluscp.dftDyn[1])
+    if soluscp.nrmdftdyn[1]  > scppbm.scpPrs.feas_tol
+        soluscp.flgFsbDynVec[1] = false
+        soluscp.flgFsbDyn = false
+    else
+        soluscp.flgFsbDynVec[1] = true
+    end
+    # recheck terminal condition
+    copyto!(soluscp.dftDyn[end], scppbm.bc.xf - xref[end])
+    soluscp.nrmdftdyn[end] = norm(soluscp.dftDyn[end])
+    if soluscp.nrmdftdyn[end]  > scppbm.scpPrs.feas_tol
+        soluscp.flgFsbDynVec[end] = false
+        soluscp.flgFsbDyn = false
+    else
+        soluscp.flgFsbDynVec[end] = true
     end
 
     return nothing

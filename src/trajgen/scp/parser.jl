@@ -76,7 +76,22 @@ function scp_upd_tr!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::Noth
     idcs = subpbm.idcsLnrConPgm
     b = subpbm.b
     xref, uref, pref = scppbm.xref, scppbm.uref, scppbm.pref
-    
+    tr = scppbm.tr
+    N = scppbm.scpPrs.N
+    nrmdftdyn = scppbm.soluscp.nrmdftdyn
+    dftmin = scppbm.scpPrs.dftmin
+
+    #update cost of trust region
+    for node = 1:N
+        # due to k node binded with k-1 and k+1, so wtrk = 2/(abs(dft)_{k,k+1})
+        if max(nrmdftdyn[node], nrmdftdyn[node+1]) < dftmin
+            tr.wtrk[node] = 1/(dftmin)
+        else
+            tr.wtrk[node] = 2/(max(nrmdftdyn[node],dftmin) + max(nrmdftdyn[node+1],dftmin))
+        end
+    end
+
+    # update b of trust region 
     b[idcs.idx_bptrn] = pref
     b[idcs.idx_bptrp] = pref
 
@@ -93,7 +108,7 @@ function scp_upd_cost!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm):Not
     idcs = subpbm.idcsLnrConPgm
     pgm = subpbm.pgmLnrCon
     c = subpbm.c
-    wxc, wvc, wtrp, wtr = scppbm.wxc, scppbm.wvc, scppbm.wtrp, scppbm.wtr
+    tr, vc = scppbm.tr, scppbm.vc
 
     # dynamic states, control, parameter, virtual control
     # auxiliary variables of virtual control svc1, svc2, svc3
@@ -118,7 +133,7 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
     eps = 1e-6
     
     z = subpbm.pgmLnrCon.z
-    dfctDyn = scppbm.soluscp.dfctDyn
+    dftDyn = scppbm.soluscp.dftDyn
 
     # x, u, p : reference trajectory
     z[idcs.idcs_z[1]] = [x for xk in scppbm.xref for x in xk]
@@ -127,7 +142,7 @@ function scp_reset_z!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
 
     # vc=defect, reset virtual control at beginning, but l1-norm penalty, same as
     # 
-    z[idcs.idcs_z[4]] = [vc for vck in dfctDyn for vc in vck]
+    z[idcs.idcs_z[4]] = [vc for vck in dftDyn[2:N] for vc in vck]
     z[idcs.idcs_z[5]] = abs.(z[idcs.idcs_z[4]]) .+ eps     # svc1>=|vc|
     z[idcs.idcs_z[6]] = max.(-1*z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]], 0) .+ eps          # v'-s1+s2=0
     z[idcs.idcs_z[7]] = max.(z[idcs.idcs_z[4]] + z[idcs.idcs_z[5]], 0) .+ eps          # v'+s1-s3=0
@@ -193,7 +208,7 @@ function scp_upd_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::No
 
     # update Asp
     for i  in 1:length(subpbm.Asp.nzval)
-        subpbm.Asp.nzval[i] = Achk[subpbm.I[i], subpbm.J[i]]
+        subpbm.Asp.nzval[i] = Achk[subpbm.IA[i], subpbm.JA[i]]
     end
     pgm.A = subpbm.Asp
     pgm.G = Gsp
@@ -448,7 +463,7 @@ function scp_init_pgm!(subpbm::ScpSubPbm, scppbm::SCPPbm, trjpbm::AbstTrjPbm)::N
 
                         blk_K               ]
     
-    subpbm.I, subpbm.J, _ = findnz(subpbm.Asp)
+    subpbm.IA, subpbm.JA, _ = findnz(subpbm.Asp)
     #for i  in 1:length(Asp.nzval)
     #    Asp[i] = A[I[i], J[i]]
     #end

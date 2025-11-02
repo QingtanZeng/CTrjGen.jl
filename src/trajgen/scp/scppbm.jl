@@ -40,24 +40,26 @@ mutable struct ScpParas
     Nsub::Int      # Number of subinterval integration
 
     itrScpMax::Int     # Maximum outer loop number
-    itrCSlvMax::Int     # Maximum internal loop number
+    itrPgmMax::Int     # Maximum internal loop number
 
-    CSlvType::Int      # Specify default solver type
+    PgmType::Int      # Specify default solver type, 0 LSOCP, 1 QSOCP
 
     epsl_abs::Float64    # Absolute convergence tolerance
     epsl_rel::Float64    # Relative convergence tolerance
-    feas_tol::Float64    # Dynamic feasibility tolerance
+    feas_tol::Float64    # Dynamic feasibility absolute tolerance
+    dftmin::Float64      # the minimum defect used to update trust region weights
     q_exit::Float64    # Stopping criterion norm
+
 end
 function ScpParas(; N::Int=10, Nsub::Int=10,
-    itrScpMax::Int=30, itrCSlvMax::Int=50,
-    CSlvType::Int=0,
+    itrScpMax::Int=30, itrPgmMax::Int=50,
+    PgmType::Int=0,
     epsl_abs::Float64=1e-2, epsl_rel::Float64=3e-3,
     feas_tol::Float64=1e-2)::ScpParas
 
     q_exit = 1e-2
-    prsscp = ScpParas(N, Nsub, itrScpMax, itrCSlvMax,
-        CSlvType,
+    prsscp = ScpParas(N, Nsub, itrScpMax, itrPgmMax,
+        PgmType,
         epsl_abs, epsl_rel,
         feas_tol, q_exit)
     return prsscp
@@ -103,8 +105,9 @@ mutable struct ScpSolu          # private data protection
 
     # Risk/Feasibility assessment
     # dynamics feasibility
-    dfctDyn::Vector{Vector{Float64}}        # N-1 nodes * nx
-    flgFsbDynVec::Vector{Bool}      # N-1 nodes
+    dftDyn::Vector{Vector{Float64}}         # N+1 nodes * nx
+    nrmdftdyn::Vector{Float64}             # N+1 nodes}
+    flgFsbDynVec::Vector{Bool}              # N+1 nodes
     flgFsbDyn::Bool                 # overall flag
 
     # Discrete-time Trajectory :x, u, p
@@ -133,8 +136,9 @@ mutable struct ScpSolu          # private data protection
         cost = Inf
 
         # Risk/Feasibility assessment
-        dfctDyn = [zeros(Float64, nx) for _ in 1:N-1 ] 
-        flgFsbDynVec = ones(Bool, N - 1)
+        dftDyn = [zeros(Float64, nx) for _ in 1:N+1 ] 
+        nrmdftdyn = zeros(Float64, N+1)
+        flgFsbDynVec = ones(Bool, N+1)
         flgFsbDyn = false
 
         # Discrete-time Trajectory :x, u, p
@@ -145,7 +149,7 @@ mutable struct ScpSolu          # private data protection
 
         scpsolu = new(codescpexit, flgFsb, flgOpt, itrscp, itrAllCvx, timescp,
             cost,
-            dfctDyn, flgFsbDynVec, flgFsbDyn,
+            dftDyn, flgFsbDynVec, flgFsbDyn,
             tNodes, xd, ud, p)
 
         return scpsolu
@@ -179,21 +183,62 @@ end
 mutable struct JerkBoxDOPC
     # the box limits of jerk: 3-order derivative from control(u)/acceleration, 
     # or equality h(x,u,p)
-    # jerk = |h_k+1 - h_k|/Δt ∈ [low, High]   |
+    # jerk = |h_k+1 - h_k|/Δt ∈ [0, High]   
+    I_ujk::Matrix{Float64}; ujkHighThd::Vector{Float64};
 end
 mutable struct CllsFree
     # First-order Taylor approximation of non-convex collision-free constraint
 
+    # number of obstacles avoidance
+    numobs::Int8
+
+
 end
-mutable struct L1NormCost
-    wx::Float64
-    I_xx::Vector{Float64}
+
+mutable struct L1NrmCost
+    # all linear cost including quadratic cost
+    wL1::Vector{Float64}
+
+    # linear x
+    wxc::Float64            # L1-norm cost of states
+    I_xc::Vector{Float64}   # selection matrix
+    wuc::Float64            # L1-norm cost of control
+    I_uc::Vector{Float64}   # selection matrix
+    wpc::Float64            # L1-norm cost of parameters
+    I_pc::Vector{Float64}   # selection matrix
+end
+mutable struct L2NrmCost
+    # all quadratic matrix
+    QL2::Matrix{Float64}
+end
+mutable struct EngyCost
+    # Control energy u^T*Q*u
+    Qnrg::Matrix{Float64}      # 对角矩阵, considering scaled physical energy 
+    I_nrg::Vector{Float64}    # selection matrix
+end
+mutable struct JkCost
+    # Jerk improvement dltu^T*Q*dltu
+    Qjk::Matrix{Float64}    # tridiagonal matrix
+end
+mutable struct TrkErr
+    # Tracking error    errx^T*Q*errx
+    # 参考跟踪、车道居中
+    Qtrk::Matrix{Float64}   # l2对角矩阵
+    wtrk::Matrix{Float64}   # l1系数
+    I_trk                   # selection matrix
 end
 
+mutable struct TrRgn
+    # Trust Region's cost and constraints
+    wtr::Vector{Float64}    # each weight of nodes
+    wtrp::Float64
+end
+mutable struct VrtCtrl
+    # Virtual Control's cost, a fixed value
+    wvc::Float64
+end
 
-
-
-""" Discrete OPC problem Transcription and Parsed from [Trajectory Generation Problem 0&1]"""
+""" SCP-Problem 2: Discrete OPC problem Transcription and Parsed from [Trajectory Generation Problem 0&1]"""
 #=  
 1. discrete cost with standard linear and quadratic formula from Problem 0&1
 2. affine and conic constraits with standard conic classes  from Problem 0&1
@@ -215,7 +260,7 @@ mutable struct SCPPbm           # private data protection
     # Scaling Matrix
     scpScl::SCPScaling
 
-    # 1. constraints of Discrete OPC Problem
+    # 1. Constraints of Discrete OPC Problem
 
     # 1.1 dynamic system equations
     # 1.1.1 parsed dynamic system
@@ -230,29 +275,33 @@ mutable struct SCPPbm           # private data protection
     # 1.2.2 Box limits of jerk
     jerkboxdyn::JerkBoxDOPC
 
-    # 1.3 trust-region constraints
-
-    # 1.4 constraints of states
-    # 1.4.1 Collision-free constraints
+    # 1.3 Constraints of states
+    # 1.3.1 Collision-free constraints
     cllsfree::CllsFree
 
     # 2. Cost
-    # 2.1 L1-norm cost 
-    wxc::Float64
-    I_xc::Vector{Float64}
-
+    # 2.1 L1-norm class cost 
+    l1cost::L1NrmCost
     # 2.2 L2-norm(quadratic) and L2-norm distance cost
-    # 2.3 virtual control   
-    wtr::Float64
-    wtrp::Float64
-    # 2.4 trust region
-    wvc::Float64
+    l2cost::L2NrmCost
+    costengy::EngyCost
+    costjk::JkCost
+    costtrk::TrkErr
+    
+    # 3. virtual control and trust region from SCP/PTR
+    # 3.1 trust region
+    trrgn::TrRgn
+    # 3.2 virtual control
+    vc::VrtCtrl
 
-    """ Properties of standard structure """
-    # Abstract index of PTR's parsed discrete OPC
-    #num_aff::Int           # number of all affine block
-    #num_k0::Int            # number of all K0 Non-positive orthant
-    #num_soc:Int            # number of all K2 SOC
+    """ INDEX of standard structure for PTR's parsed discrete OPC  """
+    # Abstract index of PTR's parsed discrete OPC, used to generate Sub-Problem 3
+    #idx_aff::Int           # number of all affine block
+    #idx_k0::Int            # number of all K0 Non-positive orthant
+    #idx_soc:Int            # number of all K2 SOC
+    #idx_l1cost
+    #idx_l2cost
+
 
     """ SCP Solution"""
     soluscp::ScpSolu
@@ -694,12 +743,17 @@ struct IdcsLnrConPgm
         return idcs
     end
 end
+struct IdcQuadConPgm 
+    # The dimentations of linear conic program's z,c,Q,A,b,G,h
+
+end
 
 mutable struct ScpPgmParas
+    PgmType::Int      # Specify default solver type, 0 LSOCP, 1 QSOCP
 end
 mutable struct ScpSubSolu
 end
-""" Discrete Conic problem Parsed from [SCP-Problem 2: Discrete OPC problem]"""
+""" SCP-Problem 3: Discrete Conic problem Parsed from [SCP-Problem 2: Discrete OPC problem]"""
 #=  
 1. standard programming formula {z,c,A,b,G,h} for a specific conic solver
 
@@ -707,6 +761,9 @@ end
 5. all Sub-Problem methods: Constructer, Parser, Update
 =#
 mutable struct ScpSubPbm        # private data protection
+
+    #parameters of sub-Problem3
+    subpbmPrs::ScpPgmParas
 
     #problem-specific parameters: timeNodes-grid """
     tNodes::Vector{Float64}     # (Shared) nodes between [0,1]
@@ -718,19 +775,25 @@ mutable struct ScpSubPbm        # private data protection
     """ The standard conic problem from PTR's parsed discrete OPC"""
     # The indices of linear conic program's z,c,A,b,G,h
     idcsLnrConPgm::IdcsLnrConPgm
-    # The structure c, b, h
+    # The structure Q, c, b, h
+    Q::Matrix{Float64}
+    Qsp::SparseMatrixCSC{Float64, Int64}
+    IQ::Vector{Int64}; JQ::Vector{Int64};     #index of sparse matrix Q
     c::Vector{Float64}
+
     b::Vector{Float64}
     h::Vector{Float64}
 
     # The Matrix A, G
     A::Matrix{Float64}
     Achk::Matrix{Float64}
-    I::Vector{Int64}; J::Vector{Int64};
+    IA::Vector{Int64}; JA::Vector{Int64};     #index of sparse matrix Asp
     Asp::SparseMatrixCSC{Float64, Int64}
+
     G::Matrix{Float64}
     Gsp::SparseMatrixCSC{Float64, Int64}
-    # Linear conic problem including shared Sparse Matrix
+
+    # Conic problem including shared Sparse Matrix
     pgmLnrCon::LnrConPgm
     
     # The solution of subPbm
