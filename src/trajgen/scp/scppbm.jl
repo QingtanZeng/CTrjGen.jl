@@ -2,7 +2,8 @@ using LinearAlgebra, SparseArrays, ECOS
 include("../cvxslv/lnrConPgm.jl")
 
 struct IdcsDscrtzSys
-    """ The index of d/dt*P(tau)=
+    """ The index of vectorized state equation of dynamic system
+    d/dt*P(tau)=
     d/dt*[  x(tau)               [   F;
             P                        A*P;
             P_Bk        =            (B*dltk+A*P_Bk);
@@ -61,8 +62,6 @@ function ScpParas(; N::Int=10, Nsub::Int=10,
         feas_tol, q_exit)
     return prsscp
 end
-
-
 mutable struct SCPScaling
     Sx::Matrix{Float64}  # State scaling coefficient matrix
     cx::Vector{Float64}  # State scaling offset vector
@@ -157,9 +156,46 @@ end
 mutable struct ScpHist          # private data protection
 end
 
+""" the sub-data structure of discrete OPC problem"""
+mutable struct BcDOPC
+    # linearized affine function of innitial and terminal boundaries conditions
+    A0::Matrix{Float64}     # A0*x1+E0*p+r0 = 0
+    E0::Matrix{Float64}
+    x0::Vector{Float64}
+    r0::Vector{Float64}
+
+    AN::Matrix{Float64}     # AN*xn+EN*p+rN =0
+    EN::Matrix{Float64}
+    xf::Vector{Float64}
+    rf::Vector{Float64}
+end
+mutable struct BoxDOPC
+    # the box limits of states, controls, parameters
+    # it's smaller range than scaling
+    I_xl::Matrix{Float64}; xHighThd::Vector{Float64}; xLowThd::Vector{Float64}
+    I_ul::Matrix{Float64}; uHighThd::Vector{Float64}; uLowThd::Vector{Float64}
+    I_pl::Matrix{Float64}; pHighThd::Vector{Float64}; pLowThd::Vector{Float64}
+end
+mutable struct JerkBoxDOPC
+    # the box limits of jerk: 3-order derivative from control(u)/acceleration, 
+    # or equality h(x,u,p)
+    # jerk = |h_k+1 - h_k|/Δt ∈ [low, High]   |
+end
+mutable struct CllsFree
+    # First-order Taylor approximation of non-convex collision-free constraint
+
+end
+mutable struct L1NormCost
+    wx::Float64
+    I_xx::Vector{Float64}
+end
+
+
+
+
 """ Discrete OPC problem Transcription and Parsed from [Trajectory Generation Problem 0&1]"""
 #=  
-1. discrete cost with standard linear or quadratic formula from Problem 0&1
+1. discrete cost with standard linear and quadratic formula from Problem 0&1
 2. affine and conic constraits with standard conic classes  from Problem 0&1
 3. standard structure of PTR: 
 4. configuration, parameters of PTR; Intermediate results and data from ScpSubPbm; History;
@@ -179,32 +215,29 @@ mutable struct SCPPbm           # private data protection
     # Scaling Matrix
     scpScl::SCPScaling
 
+    # 1. constraints of Discrete OPC Problem
+
+    # 1.1 dynamic system equations
     # 1.1.1 parsed dynamic system
     dynDLTV::DLTVSys
-    idcsDscrtzSys::IdcsDscrtzSys    # the index of system's 1-D P(tau)
+    idcsDscrtzSys::IdcsDscrtzSys    # the index of vectorrized system's 1-D P(tau)
     # 1.1.2 boundaries
-    A0::Matrix{Float64}     # A0*x1 = x_0
-    x_0::Vector{Float64}
-    AN::Matrix{Float64}     # AN*xn = x_n
-    x_f::Vector{Float64}
+    bc::BcDOPC
 
+    # 1.2 Box limits
     # 1.2.1 Box limits of states, controls, parameters
-    I_xl::Matrix{Float64}; xHighThd::Vector{Float64}; xLowThd::Vector{Float64}
-    I_ul::Matrix{Float64}; uHighThd::Vector{Float64}; uLowThd::Vector{Float64}
-    I_pl::Matrix{Float64}; pHighThd::Vector{Float64}; pLowThd::Vector{Float64}
-    # 1.2.2 Box limits of jerk: 3-order derivative from control(u), or equality h(x,u,p)
-        # jerk = |h_k+1 - h_k|/Δt ∈ [low, High]   |
-    # 1.2.3 Affine equalities from L1-norm cost
-    # 1.2.4 Affine equalities and inequalities with auxiliary variables
+    boxdyn::BoxDOPC
+    # 1.2.2 Box limits of jerk
+    jerkboxdyn::JerkBoxDOPC
 
-    # 1.3.1 trust-region constraints
-    # 1.3.2 SOC constraints from L2-norm and L2-norm distance cost
-    # 1.3.3 SOC constraints
+    # 1.3 trust-region constraints
 
-    # 1.5 (Non-positive orthant constraints, h-Gz>=0)
-    # 1.5 SOC constraints(SOC K2, by h - Gz ∈ K)
+    # 1.4 constraints of states
+    # 1.4.1 Collision-free constraints
+    cllsfree::CllsFree
 
-    # 2.1 linear and L1-norm cost 
+    # 2. Cost
+    # 2.1 L1-norm cost 
     wxc::Float64
     I_xc::Vector{Float64}
 
@@ -329,6 +362,7 @@ struct IdcsLnrConPgm
     num_ic::Int        # nic, =size(A0,1)
     num_fc::Int        # nfc, =size(AN,1)
     # 1.3 virtual control variables
+    # Affine equalities from L1-norm cost of virtual control
     dims_vcdyn::Int     # nx0+(N-1)*nx+nxf, 
                         # usually no vc in initial and terminal boundaries
     dims_svc1::Int      # slack variable, =dims_vcdyn, svc1_i >=|vc_i|_1 
@@ -391,6 +425,7 @@ struct IdcsLnrConPgm
     idx_bxcp::UnitRange{Int}
 
     # 3. v3={s1;...;sml}, trust region, SOC and A_SOC
+    # SOC constraints from L2-norm and L2-norm distance cost
     # 3.1 trust region auxiliary block
     num_ptr::Int        # = np
     dims_chiptr::Int       # = 1+2, [etap,chip1,chip2]
