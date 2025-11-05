@@ -64,6 +64,17 @@ function ScpParas(; N::Int=10, Nsub::Int=10,
         feas_tol, q_exit)
     return prsscp
 end
+mutable struct BoxDOPC
+    # the box limits of states, controls, parameters, scaled in [0, 1]
+    # the non-limited reference range of states, usualy scaled in [0,10]
+    # it's smaller range than scaling
+    I_xscl::Matrix{Float64}; xSclMax::Vector{Float64}; xSclMin::Vector{Float64}
+    #I_xl::Matrix{Float64};   xHighThd::Vector{Float64}; xLowThd::Vector{Float64}
+    # all controls and parameters must be bounded in [0, 1]
+    I_uscl::Matrix{Float64}; uHighThd::Vector{Float64}; uLowThd::Vector{Float64}
+    I_pscl::Matrix{Float64}; pHighThd::Vector{Float64}; pLowThd::Vector{Float64}
+
+end
 mutable struct SCPScaling
     Sx::Matrix{Float64}  # State scaling coefficient matrix
     cx::Vector{Float64}  # State scaling offset vector
@@ -75,13 +86,23 @@ mutable struct SCPScaling
     iSu::Matrix{Float64} # Inverse of input scaling matrix
     iSp::Matrix{Float64} # Inverse of parameter scaling coefficient matrix
 
-    function SCPScaling(nx::Int, nu::Int, np::Int)::SCPScaling
+    function SCPScaling(nx::Int, nu::Int, np::Int, 
+                        boxdyn::BoxDOPC)::SCPScaling
         Sx = Float64.(I(nx))
         cx = zeros(Float64, nx)
+        Sx .= Sx*(boxdyn.xSclMax .- boxdyn.xSclMin)
+        cx .= boxdyn.xSclMin
+
         Su = Float64.(I(nu))
         cu = zeros(Float64, nu)
+        Su .= Su*(boxdyn.uHighThd .- boxdyn.uLowThd)
+        cu .= boxdyn.uLowThd
+
         Sp = Float64.(I(np))
         cp = zeros(Float64, np)
+        Sp .= Sp*(boxdyn.pHighThd .- boxdyn.pLowThd)
+        cp .= boxdyn.pLowThd
+
         iSx = inv(Sx)
         iSu = inv(Su)
         iSp = inv(Sp)
@@ -172,13 +193,6 @@ mutable struct BcDOPC
     EN::Matrix{Float64}
     xf::Vector{Float64}
     rf::Vector{Float64}
-end
-mutable struct BoxDOPC
-    # the box limits of states, controls, parameters
-    # it's smaller range than scaling
-    I_xl::Matrix{Float64}; xHighThd::Vector{Float64}; xLowThd::Vector{Float64}
-    I_ul::Matrix{Float64}; uHighThd::Vector{Float64}; uLowThd::Vector{Float64}
-    I_pl::Matrix{Float64}; pHighThd::Vector{Float64}; pLowThd::Vector{Float64}
 end
 mutable struct JerkBoxDOPC
     # the box limits of jerk: 3-order derivative from control(u)/acceleration, 

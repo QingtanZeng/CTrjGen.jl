@@ -28,6 +28,8 @@ function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::N
     idcs = subpbm.idcsLnrConPgm
     dltv = scppbm.dynDLTV
     A, b = subpbm.A, subpbm.b
+    scpScl = scppbm.scpScl
+    Sx, cx, Su, cu, Sp, cp = scpScl.Sx, scpScl.cx, scpScl.Su, scpScl.cu, scpScl.Sp, scpScl.cp
 
     # -(xprop_k+1 − Fref(k))= Ak*xk- Inx*xk+1 + Bk−*uk + Bk+*uk+1 + Ek*p
 
@@ -41,8 +43,8 @@ function scp_upd_dynAb!(subpbm::ScpSubPbm, scppbm::SCPPbm,trjpbm::AbstTrjPbm)::N
         idx_bxk = idcs.idx_bx(node)
 
         # A's dynamic part
-        A[idx_bxk, idx_zxk] = dltv.An[node]
-        A[idx_bxk, idx_zxkP1] = -1*Float64.(I(nx))
+        A[idx_bxk, idx_zxk] = dltv.Anscl[node]
+        A[idx_bxk, idx_zxkP1] = -Sx*Float64.(I(nx))
         A[idx_bxk, idx_zuk] = dltv.Bkn[node]
         A[idx_bxk, idx_zukP1] = dltv.BkP1n[node]
         A[idx_bxk, idx_zp] = dltv.En[node]

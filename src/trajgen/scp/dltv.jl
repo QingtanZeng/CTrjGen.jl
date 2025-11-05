@@ -6,6 +6,13 @@ mutable struct DLTVSys
     uref::Vector{Vector{Float64}}
     pref::Vector{Float64}
 
+    # Original Equations
+    # xk+1 = Ak*xk + Bk-*uk + Bk+*uk+1 + Ek*p + 
+    #            (xprop_k+1 -(Ak*xref_k+Bk-*uref_k+Bk+*uref_k+1+Ek*pref))
+    # Scaled Equations
+    # Sx*xk+1 = Ak*Sx*xk + Bk-*Su*uk + Bk+*Su*uk+1 + Ek*Sp*pref +
+    #            (rn - cx + Ak*cx + Bk-*cu + Bk+*cu + Ek*cp)
+
     # -(xprop_k+1 − Fref(k))= Ak*xk- Inx*xk+1 + Bk−*uk + Bk+*uk+1 + Ek*p
     # -rn = ...
 
@@ -16,6 +23,13 @@ mutable struct DLTVSys
     BkP1n::Vector{Matrix{Float64}}
     En::Vector{Matrix{Float64}}
     rn::Vector{Vector{Float64}}
+
+    # Scaled discrete-time state-equation
+    Anscl::Vector{Matrix{Float64}}
+    Bknscl::Vector{Matrix{Float64}}
+    BkP1nscl::Vector{Matrix{Float64}}
+    Enscl::Vector{Matrix{Float64}}
+    rnscl::Vector{Vector{Float64}}
 
     # Common info
     timeDiscrtz::Float64        # [s] time taken in system's discretization and update
@@ -43,6 +57,12 @@ mutable struct DLTVSys
         BkP1n = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
         En = [Matrix{Float64}(undef, nx, np) for _ in 1:N-1]
         rn = [Vector{Float64}(undef, nx) for _ in 1:N-1]
+
+        Anscl = [Matrix{Float64}(undef, nx, nx) for _ in 1:N-1]
+        Bknscl = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
+        BkP1nscl = [Matrix{Float64}(undef, nx, nu) for _ in 1:N-1]
+        Enscl = [Matrix{Float64}(undef, nx, np) for _ in 1:N-1]
+        rnscl = [Vector{Float64}(undef, nx) for _ in 1:N-1]
     
         # 初始化其他字段
         tNodes = Vector{Float64}()
@@ -52,13 +72,18 @@ mutable struct DLTVSys
         timeDiscrtz = 0.0
     
         # 使用 new() 创建并返回实例
-        return new(tNodes, xref, uref, pref, xn, An, Bkn, BkP1n, En, rn, timeDiscrtz)
+        return new(tNodes, xref, uref, pref, 
+                    xn, An, Bkn, BkP1n, En, rn, 
+                    Anscl, Bknscl, BkP1nscl, Enscl, rnscl,
+                    timeDiscrtz)
     end
 end
 
 function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys, 
-                        dynmdl::DynMdl, dltv::DLTVSys)::Nothing
+                        dynmdl::DynMdl, dltv::DLTVSys, scpScl::SCPScaling)::Nothing
     nx, nu, np = dynmdl.nx, dynmdl.nu, dynmdl.np
+    Sx, cx, Su, cu, Sp, cp = scpScl.Sx, scpScl.cx, scpScl.Su, scpScl.cu, scpScl.Sp, scpScl.cp
+
     # reshape back P_k
     x_kP1 = P[idcs.idx_x]
     A_k = reshape(P[idcs.idx_A], (nx, nx))
@@ -76,5 +101,13 @@ function DLTVSys_upd!(  node::Int, P::Vector{Float64}, idcs::IdcsDscrtzSys,
     copyto!(dltv.BkP1n[node], B_kP)
     copyto!(dltv.En[node], E_k)
     copyto!(dltv.rn[node], (x_kP1 - (A_k*xref_k+B_kN*uref_k+B_kP*uref_kP1+E_k*pref)))
+
+    # scaling
+    copyto!(dltv.Anscl[node], A_k*Sx)
+    copyto!(dltv.Bknscl[node], B_kN*Su)
+    copyto!(dltv.BkP1nscl[node], B_kP*Su)
+    copyto!(dltv.Enscl[node], E_k*Sp)
+    copyto!(dltv.rnscl[node], dltv.rn[node]-cx+A_k*cx+B_kN*cu+B_kP*cu+E_k*cp)
+
     return nothing
 end
