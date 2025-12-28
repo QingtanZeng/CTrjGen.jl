@@ -1,25 +1,48 @@
-Julia implemetation of SCP PTR for trajectory generation, solely for academic purposes with hand-parsed process.
+> :information_source: The repository CTrjGen is being developed in paralled with author's R&D progress,
+> to implement more new design features from academic papers from 2023-2026 and practical functions
+> including AutoDiff, SCS solver and so on.
 
-Abbreviation
-SCP:
-IPM:
+<p align="center">
+<a href="media/logo/about.md" title="About the logo">
+<img alt="CTrjGen FlowChart"
+    title="CTrjGen FlowChart"
+    src="media/CTrjGen.png"
+    width="400px" />
+</a>
+</p>
 
-Overview
+The <b>Computational Trajectory Generation</b> (CTrjGen) is a Julia implemetation of SCP PTR algorithm [1][2] 
+for trajectory generation with <b>hand-parsed process</b> and ECOS(a linear SOCP solver) [4], solely for academic purposes. 
 
+Sequential Convex Programming(SCP) is a kind of multi-shooting direct methods of numerical optimal control problem 
+modeled from automonous systems such as Auto ADS, Robot Loco-manipulation, Rocket landing and so on. And Penalized 
+Trust Region(PTR) is one of SCP algorithms designed by Dr. T. P. Reynolds, Prof. B. Açıkmeşe et al from ACL, University of Washington [1].
 
+## Overview
+CTrjGen is mainly composed of three parts.
+1. OCP Class: dynamics, constraints, cost and ocp parameters.
+2. SCP Class and parser function.
+3. SubProblem class and lsocp structure used in ECOS.
 
-Implementation Highlights
-1. Hand-Parsed process into
-  a) linear conic programming using second-order interior-points method (homogenous self-dual embedding IPM, ECOS)
-  b) generic conic programming using first-order primal-dual method, including SCS(ADMM+IPM) and PIPG
+## Implementation Highlights
+1. <b>Hand-Parsed process</b>
+Rather than using automatic parser such as JuMP or CVCPY [2], stardard form of linear SOCP are handed parsed from original OCP.
+Because developers must be familar with each calculation step, eliminate conpuational bottlenecks and test software performance,
+especillay for real-time embeded systems, which usually
+have limited compulating resource, require functional safety review and failure may cause losses in real world.
+<p align="center">
+<a href="media/logo/about.md" title="About the logo">
+<img alt="Sparse structure of A,b,c Array from linear SOCP"
+    title="Sparse structure of A,b,c Array from linear SOCP"
+    src="src/trajgen/examples/trjdb_pgm_init.png"
+    width="200px" />
+</a>
+</p>
 
-2. Modelling common objective and constraints from planning and control of vehicle
-  a) 8-Dof Auto elevated-road cases:
-  
-  b) 3-Dof rocket landing cases: 
+2. <b>Inverse-free FOH discretization</b> using RK4 of nonlinear system [3].
 
-References
-[1] 
-[2] 
-[3] 
-[4]
+## Reference
+[1] Reynolds, T. P. (2020). Computational guidance and control for aerospace systems. University of Washington.
+[2] https://github.com/UW-ACL/SCPToolbox.jl
+[3] Kamath, A. G., Doll, J. A., Elango, P., Kim, T., Mceowen, S., Yu, Y., ... & Açıkmeşe, B. (2025). Onboard Dual Quaternion Guidance for Rocket Landing. arXiv preprint arXiv:2508.10439.
+[4] Domahidi, A., Chu, E., & Boyd, S. (2013, July). ECOS: An SOCP solver for embedded systems. In 2013 European control conference (ECC) (pp. 3071-3076). IEEE.
