@@ -6,7 +6,7 @@
 <img alt="CTrjGen FlowChart"
     title="CTrjGen FlowChart"
     src="media/CTrjGen01.png"
-    width="1000px" />
+    width="800px" />
 </p>
 
 <p align="center">
@@ -28,11 +28,12 @@ CTrjGen is mainly composed of three parts.
 
 ## Implementation Highlights
 1. <b>Hand-Parsed process</b>
-<p>
-Rather than using automatic parsers such as JuMP or CVXPY [2], the standard form of linear SOCP is hand-parsed from the original OCP.
-Because developers must be familiar with each calculation step, eliminate computational bottlenecks and test software performance,
-especially for real-time embedded systems, which usually
+
+- Rather than using automatic parsers such as JuMP or CVXPY [2], the standard form of linear SOCP is hand-parsed from the original OCP.
+Because developers must be <b>familiar with each calculation step, eliminate computational bottlenecks and test software performance</b>,
+- especially for real-time embedded systems, which usually
 have limited computing resources, require functional safety review and failure may cause losses in the real world.
+
 </p>
 <p align="center">
 <img alt="Sparse structure of A,b,c Array from linear SOCP"
@@ -40,9 +41,8 @@ have limited computing resources, require functional safety review and failure m
     src="src/trajgen/examples/trjdb_pgm_init.png"
     width="400px" />
 </p>
-<p>
+
 2. <b>Inverse-free FOH discretization</b> using RK4 of nonlinear system [3].
-</p>
 
 ## Reference
 [1] Reynolds, T. P. (2020). Computational guidance and control for aerospace systems. University of Washington.
