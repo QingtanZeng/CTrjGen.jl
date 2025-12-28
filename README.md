@@ -3,12 +3,10 @@
 > including AutoDiff, SCS solver and so on.
 
 <p align="center">
-<a href="media/logo/about.md" title="About the logo">
 <img alt="CTrjGen FlowChart"
     title="CTrjGen FlowChart"
     src="media/CTrjGen.png"
-    width="400px" />
-</a>
+    width="800px" />
 </p>
 
 <p align="center">
@@ -35,12 +33,10 @@ Because developers must be familar with each calculation step, eliminate conpuat
 especillay for real-time embeded systems, which usually
 have limited compulating resource, require functional safety review and failure may cause losses in real world.
 <p align="center">
-<a href="media/logo/about.md" title="About the logo">
 <img alt="Sparse structure of A,b,c Array from linear SOCP"
     title="Sparse structure of A,b,c Array from linear SOCP"
     src="src/trajgen/examples/trjdb_pgm_init.png"
-    width="200px" />
-</a>
+    width="400px" />
 </p>
 
 <p>
