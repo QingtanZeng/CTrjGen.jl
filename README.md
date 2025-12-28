@@ -1,11 +1,12 @@
-Julia implemetation of PTR for vehicle trajectory generation, solely for academic purposes, which take 8-Dof Auto elevated-road cases and 3-Dof rocket landing cases with hand-parsed process.
+Julia implemetation of SCP PTR for trajectory generation, solely for academic purposes with hand-parsed process.
 
 Abbreviation
-PTR:
 SCP:
 IPM:
-PIPG:
-ADMM:
+
+Overview
+
+
 
 Implementation Highlights
 1. Hand-Parsed process into
