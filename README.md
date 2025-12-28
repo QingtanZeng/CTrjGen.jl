@@ -2,6 +2,9 @@
 > to implement more new design features from academic papers from 2023-2026 and practical functions
 > including AutoDiff, SCS solver and so on.
 
+# Computational Trajectory Generation
+*Sequential Convex Programming for trajectory generation with hand-parser.*
+
 <p align="center">
 <img alt="CTrjGen FlowChart"
     title="CTrjGen FlowChart"
@@ -19,6 +22,8 @@ for trajectory generation with a <b>hand-parsed process</b> and ECOS (a linear S
 <b>Sequential Convex Programming</b> (SCP) is a type of multiple-shooting direct method for numerical optimal control problems, 
 modeled from autonomous systems such as Autonomous Driving, Robotic Loco-manipulation, Rocket Landing and so on. The <b>Penalized 
 Trust Region</b> (PTR) is one of SCP algorithm designed by Dr. T. P. Reynolds, Prof. B. Açıkmeşe et al. from ACL, University of Washington [1].
+
+---
 
 ## Overview
 CTrjGen is mainly composed of three parts.
@@ -39,6 +44,8 @@ have limited computing resources, static memory allocation，require functional 
     width="400px" />
 </p>
 2. <b>Inverse-free FOH discretization</b> using RK4 of nonlinear system [3].
+
+---
 
 ## Reference
 [1] Reynolds, T. P. (2020). Computational guidance and control for aerospace systems. University of Washington. \
