@@ -11,6 +11,10 @@
 </a>
 </p>
 
+<p align="center">
+    <a href="http://www.gnu.org/licenses/gpl-3.0.txt"><img src="https://img.shields.io/badge/license-GPL_3-green.svg" alt="License GPL 3" /></a>
+</p>
+
 The <b>Computational Trajectory Generation</b> (CTrjGen) is a Julia implemetation of SCP PTR algorithm [1][2] 
 for trajectory generation with <b>hand-parsed process</b> and ECOS(a linear SOCP solver) [4], solely for academic purposes. 
 
@@ -39,10 +43,15 @@ have limited compulating resource, require functional safety review and failure 
 </a>
 </p>
 
+<p>
 2. <b>Inverse-free FOH discretization</b> using RK4 of nonlinear system [3].
+</p>
 
 ## Reference
 [1] Reynolds, T. P. (2020). Computational guidance and control for aerospace systems. University of Washington.
+
 [2] https://github.com/UW-ACL/SCPToolbox.jl
+
 [3] Kamath, A. G., Doll, J. A., Elango, P., Kim, T., Mceowen, S., Yu, Y., ... & Açıkmeşe, B. (2025). Onboard Dual Quaternion Guidance for Rocket Landing. arXiv preprint arXiv:2508.10439.
+
 [4] Domahidi, A., Chu, E., & Boyd, S. (2013, July). ECOS: An SOCP solver for embedded systems. In 2013 European control conference (ECC) (pp. 3071-3076). IEEE.
