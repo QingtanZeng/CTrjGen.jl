@@ -51,7 +51,8 @@ have limited computing resources, static memory allocation，require functional 
 [1] Reynolds, T. P. (2020). Computational guidance and control for aerospace systems. University of Washington. \
 [2] https://github.com/UW-ACL/SCPToolbox.jl \
 [3] Kamath, A. G., Doll, J. A., Elango, P., Kim, T., Mceowen, S., Yu, Y., ... & Açıkmeşe, B. (2025). Onboard Dual Quaternion Guidance for Rocket Landing. arXiv preprint arXiv:2508.10439. \
-[4] Domahidi, A., Chu, E., & Boyd, S. (2013, July). ECOS: An SOCP solver for embedded systems. In 2013 European control conference (ECC) (pp. 3071-3076). IEEE.
+[4] Domahidi, A., Chu, E., & Boyd, S. (2013, July). ECOS: An SOCP solver for embedded systems. In 2013 European control conference (ECC) (pp. 3071-3076). IEEE. \
+[5] O'Donoghue, B. (2021). Operator splitting for a homogeneous embedding of the linear complementarity problem. SIAM Journal on Optimization, 31(3), 1999-2023.
 
 ## License
 Copyright (C) 2025 Qingtan Zeng \
