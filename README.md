@@ -25,11 +25,21 @@ Trust Region</b> (PTR) is one of SCP algorithm designed by Dr. T. P. Reynolds, P
 
 ---
 
+## Document
+see development report [**Computational Trajectory Generation**](https://qingtanzeng.github.io/projects/2_project/).
+
 ## Overview
 CTrjGen is mainly composed of three parts.
 1. OCP Class: dynamics, constraints, cost and ocp parameters.
 2. SCP Class and parser function.
 3. SubProblem class and lsocp structure used in ECOS.
+
+<p align="center">
+<img alt="Sparse structure of A,b,c Array from SOCP"
+    title="Sparse structure of A,b,c Array from SOCP"
+    src="media/Proj02_image3.jpeg"
+    width="1000px" />
+</p>
 
 ## Implementation Highlights
 1. <b>Hand-Parsed process</b>
@@ -40,8 +50,8 @@ have limited computing resources, static memory allocation，require functional 
 <p align="center">
 <img alt="Sparse structure of A,b,c Array from linear SOCP"
     title="Sparse structure of A,b,c Array from linear SOCP"
-    src="src/trajgen/examples/trjdb_pgm_init.png"
-    width="400px" />
+    src="media/Proj02_trjdb_pgm_init.png"
+    width="800px" />
 </p>
 2. <b>Inverse-free FOH discretization</b> using RK4 of nonlinear system [3].
 
